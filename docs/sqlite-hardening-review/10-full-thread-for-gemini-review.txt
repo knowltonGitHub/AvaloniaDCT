@@ -1,0 +1,959 @@
+AVALONIADCT SQLITE HARDENING — FULL THREAD FOR GEMINI FINAL REVIEW
+Concatenated: 2026-09-19
+Folder: docs/sqlite-hardening-review
+This file is a single upload bundle of the back-and-forth discussion documents.
+No application code is included beyond the Step 1–2 change dump in section 09-5.
+
+Contents in order:
+  - 00-INDEX.txt
+  - 01-user-security-questions.txt
+  - 02-cursor-stolen-file-recommendations.txt
+  - 03-user-dev-vs-production.txt
+  - 04-cursor-dev-vs-production-plan.txt
+  - 05-gemini-architecture-review.txt
+  - 06-cursor-critique-of-gemini.txt
+  - 07-gemini-agreement-and-roadmap.txt
+  - 08-cursor-login-key-handling.txt
+  - 09-user-green-light-steps-1-and-2.txt
+  - 09-5-cursor-code-changes-steps-1-and-2.txt
+
+================================================================================
+BEGIN FILE: 00-INDEX.txt
+================================================================================
+
+SQLITE HARDENING REVIEW — READING ORDER
+AvaloniaDCT
+Folder: docs/sqlite-hardening-review
+
+Read the files in numeric order. Each file is one turn in the thread
+(who said it, then the content).
+
+
+  00-INDEX.txt
+      This file.
+
+  01-user-security-questions.txt
+      You asked about SQLite security and what happens if someone
+      steals CBDB.db and opens it in DB Browser.
+
+  02-cursor-stolen-file-recommendations.txt
+      Cursor: the file is fully readable today; what is exposed;
+      layered recommendations (SQLCipher, hashed logins, AppData).
+
+  03-user-dev-vs-production.txt
+      You asked for unencrypted DEV and locked-down production.
+
+  04-cursor-dev-vs-production-plan.txt
+      Cursor: one data layer, two profiles; Debug plaintext;
+      Release always encrypted; DCT_HARDENED=1 dress rehearsal.
+      (Same plan also saved earlier as DEV-VS-PRODUCTION-SECURITY.txt
+      in the project root.)
+
+  05-gemini-architecture-review.txt
+      Gemini: dual-profile is sound; four engineering guardrails
+      (Password builder, no dual SQLite natives, derive key once,
+      File.Copy backups); suggested action plan.
+
+  06-cursor-critique-of-gemini.txt
+      Cursor: agree with the four guardrails; add login/key
+      chicken-and-egg, do not double-KDF, isolated data paths,
+      PRAGMA rekey later.
+
+  07-gemini-agreement-and-roadmap.txt
+      Gemini: agrees with Cursor's nuance; six-step roadmap;
+      green light for steps 1–2 after login/key is understood.
+
+  08-cursor-login-key-handling.txt
+      Cursor: how login uses the SQLCipher key; error code 26
+      mapping; what to implement first vs later. Waiting on
+      your green light for steps 1–2.
+
+  09-user-green-light-steps-1-and-2.txt
+      You: login/key handling approved. Green light for Step 1
+      (package swap) and Step 2 (AppSecurityProfile.Detect())
+      only. Do not wire login or connections yet.
+
+  09-5-cursor-code-changes-steps-1-and-2.txt
+      Cursor: dump of all application code changes made for
+      Steps 1 and 2 (csproj package swap + AppSecurityProfile).
+
+
+STATUS AT END OF THREAD
+  Steps 1 and 2 approved and implemented (packages + profile detector).
+  Login form and database connections are not wired to the profile yet.
+  Next: Step 3 connection factory (Password only when IsHardened).
+
+================================================================================
+END FILE: 00-INDEX.txt
+================================================================================
+
+
+================================================================================
+BEGIN FILE: 01-user-security-questions.txt
+================================================================================
+
+FROM: You (project owner)
+TO:   Cursor
+DATE: 2026-09-19
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+let's discuss the security issues.  Recommendations for keeping SQLite
+database secure?
+
+What if somebody stole the entire CBDB file and opened it with DB Broswer?
+
+================================================================================
+END FILE: 01-user-security-questions.txt
+================================================================================
+
+
+================================================================================
+BEGIN FILE: 02-cursor-stolen-file-recommendations.txt
+================================================================================
+
+FROM: Cursor
+TO:   You
+DATE: 2026-09-19
+IN REPLY TO: 01-user-security-questions.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Yes. If someone copies CBDB.db and opens it in DB Browser for SQLite, they
+get the whole database. SQLite is an unencrypted file by default. The login
+screen only gates the app; it does not protect the file on disk.
+
+WHAT THEY WOULD SEE IMMEDIATELY
+
+Table              Exposed
+-----------------  ----------------------------------------------------------
+user               Usernames and login passwords in plain text (including
+                   the seeded knowlton / knowlton)
+tagitemvaltable    Every tag, item, and clipboard value — VPN passwords,
+                   tokens, notes, URLs
+preferences        SMTP username and Gmail password in plain text
+
+The timestamped copies next to it (CBDB…_BEFORE_USE_….db, AUTO_BACKUP, and
+so on) are equally readable. In a dotnet run / Debug build they all sit
+under bin\Debug\net10.0\, which is easy to grab.
+
+So the real secret is not the login form. It is the file.
+
+WHAT ACTUALLY HELPS, IN ORDER
+
+1. Encrypt the database at rest (this is the one that answers “stolen
+   CBDB”).
+   Use SQLCipher (or equivalent) so the file is ciphertext. Without the
+   key, DB Browser shows garbage. That is the correct fix for a stolen
+   file.
+
+2. Derive the DB key from a passphrase the user types at login — not from
+   a key baked into the app.
+   A hardcoded key in the binary is only slightly better than plaintext.
+   If DCT’s login password also unlocks SQLCipher, stealing the file
+   without that password is useless.
+
+   Windows DPAPI is a weaker alternative: it protects the file if it is
+   copied to another machine / another Windows user, but anyone already
+   logged in as you can still open it.
+
+3. Hash login passwords separately with Argon2id or PBKDF2.
+   That stops a stolen file from revealing reusable login passwords. It
+   does not hide clipboard values. You still need (1).
+
+4. Stop storing SMTP passwords in the same table in plaintext.
+   Encrypt that column with the same user-derived key, or use Windows
+   Credential Manager / OS secret storage.
+
+5. Move the file out of the build folder.
+   Put it under %LocalAppData%\AvaloniaDCT\ (or similar), not bin\Debug.
+   Keep backups in that same encrypted store, or encrypt them the same
+   way. Add CBDB*.db to .gitignore so it never lands in git.
+
+6. Drop the default knowlton/knowlton seed for anything beyond first-run
+   setup, and require a password change on first launch.
+
+WHAT DOES NOT HELP AGAINST DB BROWSER
+
+- The current login check
+- NTFS permissions (the thief already has the file)
+- Parameterized SQL (that only stops injection while the app is running)
+- Hiding the file extension or renaming it .dat
+
+PRACTICAL RECOMMENDATION FOR DCT
+
+Treat this as a local password manager that happens to use SQLite. The
+minimum bar:
+
+- SQLCipher on CBDB.db
+- Key derived from the user’s DCT password at login
+- Hash the login password; never store it in user.Password as text
+- AppData location; encrypt or stop writing plaintext backups
+- Existing plaintext CBDB.db files need a one-time migration (open old
+  file, write into a new encrypted one, then delete/shred the old copies)
+
+Until that is in place, assume anyone with the file can read every
+clipboard value and both passwords.
+
+(Offer to implement SQLCipher + password-derived key + AppData storage
+as a next pass if wanted.)
+
+================================================================================
+END FILE: 02-cursor-stolen-file-recommendations.txt
+================================================================================
+
+
+================================================================================
+BEGIN FILE: 03-user-dev-vs-production.txt
+================================================================================
+
+FROM: You (project owner)
+TO:   Cursor
+DATE: 2026-09-19
+IN REPLY TO: 02-cursor-stolen-file-recommendations.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Here is my thinking.   I am wanting to have everything open and unencrypted
+during DEV so I can debug without jumping through hoops.   But I want
+everything locked down, hardened and encrypted for release to production.
+
+How do you achieve that sweet spot of "just get it working" for DEV and
+professionally prepared for the WILD after production release?
+
+================================================================================
+END FILE: 03-user-dev-vs-production.txt
+================================================================================
+
+
+================================================================================
+BEGIN FILE: 04-cursor-dev-vs-production-plan.txt
+================================================================================
+
+FROM: Cursor
+TO:   You
+DATE: 2026-09-19
+IN REPLY TO: 03-user-dev-vs-production.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+(This is the original DEV vs production plan. A copy also exists at the
+project root as DEV-VS-PRODUCTION-SECURITY.txt. Later turns in this folder
+refine PRAGMA key vs connection-string Password, and drop extra Argon2 on
+top of SQLCipher's own KDF.)
+
+DEV vs PRODUCTION SQLite SECURITY
+AvaloniaDCT — discussion notes for offline review
+Date: 2026-09-19
+
+Do not implement this until it has been reviewed. This file is a copy of the
+proposed approach only.
+
+
+GOAL
+
+Want everything open and unencrypted during DEV so debugging does not require
+jumping through hoops. Want everything locked down, hardened, and encrypted
+for release to production.
+
+The sweet spot is one data layer, two security profiles — not two apps.
+Debug stays a normal SQLite file you can open in DB Browser. Release always
+encrypts and cannot be switched off.
+
+
+RULE
+
+#if DEBUG only chooses the profile. Encryption, hashing, and AppData paths
+still compile in both configurations so the wild path can be tested before
+ship.
+
+Daily work: normal Debug (plaintext SQLite, DB Browser works).
+Before a release: run hardened Debug once, then publish Release.
+If encryption only exists in #if !DEBUG, breakage will be found by a customer
+instead of by us.
+
+
+FLOW
+
+App start
+    -> Security profile
+        -> Debug, default
+            -> Dev profile
+            -> Vanilla SQLite CBDB.db next to exe
+            -> Seed knowlton/knowlton
+            -> Title bar: DEVELOPMENT - UNENCRYPTED
+        -> Release always, or Debug plus DCT_HARDENED=1
+            -> Hardened profile
+            -> SQLCipher CBDB.db in LocalAppData
+            -> Key derived from login password
+            -> No default password, hashed logins
+
+
+DEV PROFILE (F5 / dotnet run)
+
+- Standard SQLite, no key — DB Browser works
+- File next to the exe (bin\Debug\net10.0\CBDB.db)
+- Seed user, plaintext backups, title bar screams that it is unencrypted
+- Same CRUD/SQL as production; this is not a fake database
+
+
+PRODUCTION PROFILE (dotnet run -c Release / published installer)
+
+- SQLCipher (or equivalent). Without the key, DB Browser is useless
+- Key from the user's DCT password via Argon2/PBKDF2 — never a key in the binary
+- DB under %LocalAppData%\AvaloniaDCT\, not the program folder
+- No knowlton seed; hash login passwords even though the file is encrypted
+- Backups are encrypted too, or extra copies beside the exe are not written
+- Hardened mode cannot be disabled in Release. That is what makes it safe
+  in the wild.
+
+
+HOW TO TEST THE LOCKED PATH WITHOUT HOOPS EVERY DAY
+
+Keep a second launch profile, e.g. "DCT (Hardened)":
+
+    "environmentVariables": { "DCT_HARDENED": "1" }
+
+Daily work: normal Debug.
+Before a release: run hardened Debug once, then:
+
+    dotnet publish -c Release
+
+
+ONE CONNECTION HELPER
+
+public sealed class AppSecurityProfile
+{
+    public bool IsHardened { get; init; }
+    public string DatabasePath { get; init; } = "";
+}
+
+public static AppSecurityProfile Detect()
+{
+    var hardened =
+#if DEBUG
+        Environment.GetEnvironmentVariable("DCT_HARDENED") == "1";
+#else
+        true;
+#endif
+    return new AppSecurityProfile
+    {
+        IsHardened = hardened,
+        DatabasePath = hardened
+            ? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AvaloniaDCT",
+                "CBDB.db")
+            : Path.Combine(AppContext.BaseDirectory, "CBDB.db")
+    };
+}
+
+On open: if IsHardened, PRAGMA key from the login password; otherwise open as
+today. The rest of SqliteDatabase stays the same.
+
+
+DO NOT
+
+- Ship a Debug build
+- Put a production key in source
+- Use Debugger.IsAttached (F5 vs "run without debugging" would change security)
+- Maintain two schemas or two NVM-style stacks
+
+
+SHIP CHECKLIST
+
+- dotnet publish -c Release
+- First launch creates an encrypted DB in AppData
+- Copy that file to another PC -> DB Browser cannot read it
+- Wrong password -> no data
+- Debug F5 still shows tags in DB Browser in plaintext
+
+That is the split: convenience is a Debug default, lock-down is a Release
+invariant, and DCT_HARDENED=1 is the dress rehearsal.
+
+
+STATUS
+
+Not implemented. Saved for offline review before any code changes.
+
+You then asked Cursor to pipe that reply into a text file for offline
+review. Cursor wrote DEV-VS-PRODUCTION-SECURITY.txt at the project root
+and did not change application code.
+
+================================================================================
+END FILE: 04-cursor-dev-vs-production-plan.txt
+================================================================================
+
+
+================================================================================
+BEGIN FILE: 05-gemini-architecture-review.txt
+================================================================================
+
+FROM: Gemini
+TO:   You (forwarded to Cursor)
+DATE: 2026-09-19
+IN REPLY TO: 04-cursor-dev-vs-production-plan.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+SQLite Hardening Architecture Review & Recommendations
+
+Target Project: AvaloniaDCT
+Scope: Review of dual-profile Dev vs. Hardened implementation plan
+
+Overall Assessment
+
+The two-profile architecture (DCT_HARDENED=1 flag in Debug, unconditional
+hardening in Release) is sound and safe. It avoids the "ship-day cliff"
+where encryption is only ever tested in Release without debugging symbols,
+while preserving daily developer ergonomics.
+
+Key Architectural Validations
+
+Dual-Profile Decoupling:
+
+Using #if DEBUG strictly to toggle profiles rather than conditional
+compilation around the data layer ensures the production code path is
+continuously validated.
+
+Forcing IsHardened = true unconditionally in #else ensures Release binaries
+cannot be tricked or downgraded via environment variables.
+
+Visual Development Indicator:
+
+Appending DEVELOPMENT - UNENCRYPTED to the title bar prevents test instances
+and plaintext development artifacts from being mistaken for secure credential
+stores.
+
+Implementation Guardrails & Technical Catches
+
+Ensure the following 4 engineering guidelines are applied during code
+generation:
+
+1. Connection String Password vs. Raw PRAGMA Key
+
+Do not issue raw PRAGMA key = ... calls manually post-connection unless
+strictly necessary. When using Microsoft.Data.Sqlite.Core with
+SQLitePCLRaw.bundle_e_sqlcipher, supply the key directly through
+SqliteConnectionStringBuilder:
+
+    var builder = new SqliteConnectionStringBuilder
+    {
+        DataSource = profile.DatabasePath,
+        Mode = SqliteOpenMode.ReadWriteCreate
+    };
+
+    if (profile.IsHardened)
+    {
+        // Sets the underlying SQLCipher key transparently
+        builder.Password = derivedKeyOrPassphrase;
+    }
+
+    using var connection = new SqliteConnection(builder.ConnectionString);
+    connection.Open();
+
+
+2. Prevent Native SQLite DLL Collisions
+
+Do not reference standard Microsoft.Data.Sqlite alongside
+SQLitePCLRaw.bundle_e_sqlcipher.
+
+Reference only:
+
+- Microsoft.Data.Sqlite.Core
+- SQLitePCLRaw.bundle_e_sqlcipher
+
+SQLitePCLRaw.bundle_e_sqlcipher can open completely unencrypted vanilla
+SQLite files without a password, allowing the exact same driver to power
+both the Dev profile and Hardened profile seamlessly.
+
+3. Key Derivation Lifecycle & Performance
+
+If using PBKDF2 or Argon2id to derive the database encryption key, execute
+that key derivation once at the authentication boundary (login screen).
+
+Do not derive keys inline inside recurring data access loops or property
+accessors; doing so introduces noticeable UI stutter (200–500ms CPU spikes
+per connection).
+
+Cache the derived key bytes in an active session object, and consume that
+cached key when opening connections.
+
+4. Backup Pipeline Integrity
+
+Ensure backup routines do not create accidental plaintext clones.
+
+If using filesystem copy (File.Copy(source, backupPath)), the backup
+inherits the source file's encryption automatically.
+
+If exporting or vacuuming via SQL, ensure target databases specify the
+encryption key, or restrict automated backups from running when unencrypted.
+
+Suggested Action Plan for Cursor
+
+- Add Microsoft.Data.Sqlite.Core and SQLitePCLRaw.bundle_e_sqlcipher to the
+  project file.
+- Implement AppSecurityProfile.Detect() with the #if DEBUG environment
+  variable check.
+- Update database connection factories to configure
+  SqliteConnectionStringBuilder.Password conditionally based on
+  profile.IsHardened.
+- Verify standard F5 launch opens unencrypted CBDB.db in
+  AppContext.BaseDirectory and works in DB Browser.
+- Verify DCT_HARDENED=1 creates an encrypted CBDB.db in
+  %LocalAppData%\AvaloniaDCT\.
+
+================================================================================
+END FILE: 05-gemini-architecture-review.txt
+================================================================================
+
+
+================================================================================
+BEGIN FILE: 06-cursor-critique-of-gemini.txt
+================================================================================
+
+FROM: Cursor
+TO:   You
+DATE: 2026-09-19
+IN REPLY TO: 05-gemini-architecture-review.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Gemini’s review is solid, and I would follow those four engineering
+guardrails. A few of them are sharper than my original note, and there is
+one architectural catch neither of us spelled out clearly enough.
+
+I AGREE WITH GEMINI
+
+The dual-profile design is the right one: Debug defaults to open, Release
+cannot be downgraded, DCT_HARDENED=1 is the dress rehearsal.
+
+The four guardrails are real, not style nits:
+
+1. SqliteConnectionStringBuilder.Password — yes. Microsoft.Data.Sqlite
+   applies the SQLCipher key at Open(), which is the safe moment.
+   Hand-rolling PRAGMA key after other statements is a classic “file is
+   not a database” bug.
+
+2. One native SQLite, not two — yes, and this is easy to get wrong in this
+   repo. We currently reference Microsoft.Data.Sqlite (which pulls vanilla
+   e_sqlite3) plus SQLitePCLRaw.lib.e_sqlite3. Hardening must REMOVE those
+   and use only Microsoft.Data.Sqlite.Core + SQLitePCLRaw.bundle_e_sqlcipher.
+   Mixing them causes collisions, not a fallback.
+
+3. Derive once at login, cache on the session — yes. Do not re-hash on
+   every query.
+
+4. File.Copy backups — yes. A filesystem copy of an encrypted DB stays
+   encrypted. SQL VACUUM INTO / export is where you accidentally create
+   plaintext.
+
+SQLCipher without a password opening a normal SQLite file is also correct.
+That is how one driver can serve both profiles.
+
+WHERE I WOULD TIGHTEN GEMINI’S WRITE-UP
+
+Login and encryption share the same secret. Today we SELECT from user to
+check the password. In hardened mode the file is locked with that password,
+so you cannot read user until Open() succeeds. Login becomes:
+
+  1. Derive/use the typed password as the DB key
+  2. Try Open()
+  3. Success means the password was correct (then optionally check username
+     / password hash inside)
+
+Wrong password looks like a corrupt or undecryptable file. The UI must say
+“invalid password,” not “database error.” This is the biggest design detail
+Gemini’s action plan skipped.
+
+Do not double-KDF unless you mean to. SQLCipher already runs PBKDF2 on
+builder.Password. Adding Argon2 and leaving SQLCipher’s default KDF makes
+login slow for little gain. Simplest production choice: pass the user
+passphrase through Password and let SQLCipher do the KDF. Keep Argon2 only
+if you pass a raw key and turn SQLCipher’s KDF down on purpose.
+
+Dev data will not follow you into production. Hardened mode uses a different
+path (LocalAppData) and a key. First Release launch is an empty encrypted DB,
+not a magically locked copy of bin\Debug\CBDB.db. Opening a plaintext file
+with a password fails. That is good. If you want sample tags in a hardened
+test, import them explicitly.
+
+Password change needs PRAGMA rekey later. Not required for v1, but don’t
+paint yourselves into “the login password can never change.”
+
+DEV backups can stay plaintext. I would not disable backups in Debug. They
+are useful. Just never copy a hardened AppData DB into the Debug folder
+“so I can look at it.”
+
+WHAT I WOULD TELL THE OTHER REVIEWER
+
+Gemini’s package and connection-string guidance should be treated as
+requirements, not suggestions. Combined with our profile split, the
+implementation order should be:
+
+  1. Swap to Core + bundle_e_sqlcipher (delete the vanilla SQLite packages).
+  2. AppSecurityProfile.Detect().
+  3. One connection factory: set Password only when IsHardened.
+  4. Change login so hardened open is authentication; cache that key on
+     the session.
+  5. Keep File.Copy backups.
+  6. Prove F5 = plaintext next to the exe, DCT_HARDENED=1 = encrypted in
+     AppData, Release = always hardened.
+
+I would not start coding until you are happy with that login/key
+chicken-and-egg behavior. Everything else in Gemini’s note is aligned with
+how I would build it.
+
+================================================================================
+END FILE: 06-cursor-critique-of-gemini.txt
+================================================================================
+
+
+================================================================================
+BEGIN FILE: 07-gemini-agreement-and-roadmap.txt
+================================================================================
+
+FROM: Gemini
+TO:   You (forwarded to Cursor)
+DATE: 2026-09-19
+IN REPLY TO: 06-cursor-critique-of-gemini.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Cursor's critique is spot-on and elevates the technical plan to production
+readiness. Its observation regarding avoiding a double Key Derivation
+Function (KDF) and translating low-level decryption errors into clean
+authentication failures directly solves the primary practical hurdles of
+this refactor. The shared architecture is coherent, safe, and ready for
+code implementation.
+
+Key Points of Agreement & Why Cursor's Nuance Matters
+
+Avoiding Double-KDF (Crucial Optimization):
+Cursor caught an important nuance: SQLCipher's default driver behavior runs
+PBKDF2 (typically 256,000 iterations in modern SQLCipher 4) under the hood
+when you assign a plain text string to SqliteConnectionStringBuilder.Password.
+If your application code pre-hashed that password through an intense Argon2id
+routine before handing the output to SQLCipher, you would be paying two heavy
+cryptographic penalties back-to-back at launch. Passing the typed passphrase
+directly to Password and letting SQLCipher's native PBKDF2 engine handle the
+derivation is cleaner, faster, and standard practice.
+
+The Login Sequence & Error Mapping:
+In standard development, an invalid password results in an empty query or a
+mismatched hash. With SQLCipher, attempting to open a database or query a
+table with an invalid key causes the driver to throw a SqliteException with
+error code 26 (SQLITE_NOTADB: file is not a database). Catching that specific
+exception and presenting it to the user as an incorrect password message—
+rather than letting an unhandled database corruption crash bubble up—is
+essential for a smooth UI experience.
+
+Isolated Data Boundaries:
+Keeping development test data (bin\Debug\CBDB.db) completely separated from
+the %LocalAppData% store ensures that messing with test tags in development
+never leaks mock credentials or seed users into your hardened release store.
+
+Implementation Roadmap
+
+The proposed six-step execution sequence is the exact path to follow:
+
+1. Package Swap: In your .csproj, remove Microsoft.Data.Sqlite and any
+   e_sqlite3 packages, then add Microsoft.Data.Sqlite.Core and
+   SQLitePCLRaw.bundle_e_sqlcipher.
+
+2. Profile Detector: Implement AppSecurityProfile.Detect() with the
+   #if DEBUG environment variable check.
+
+3. Connection Factory: Update your connection setup to inject .Password
+   only when IsHardened evaluates to true.
+
+4. Login Flow Refactor: Update the login screen to attempt a
+   connection/query using the entered password, caching the authenticated
+   key in memory for the active user session.
+
+5. Backups: Verify your backup logic uses simple File.Copy operations.
+
+6. Validation: Confirm that everyday F5 runs open an unencrypted local
+   database, DCT_HARDENED=1 tests the encrypted flow in AppData, and
+   Release builds strictly lock down the database.
+
+The architectural plan is watertight. You can give Cursor the green light
+to proceed with Step 1 and Step 2. Would you like to watch Cursor execute
+the package swaps first, or do you have any remaining questions about how
+the login screen handles the key?
+
+================================================================================
+END FILE: 07-gemini-agreement-and-roadmap.txt
+================================================================================
+
+
+================================================================================
+BEGIN FILE: 08-cursor-login-key-handling.txt
+================================================================================
+
+FROM: Cursor
+TO:   You
+DATE: 2026-09-19
+IN REPLY TO: 07-gemini-agreement-and-roadmap.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Gemini and I are aligned. I would not start the package swap until you say
+go — Gemini left you a real question about login/key handling, and that
+should be settled first.
+
+HOW LOGIN USES THE KEY
+
+There is no separate “database password.” What the user types is the
+SQLCipher passphrase.
+
+Debug (default)
+Same as today: open bin\Debug\...\CBDB.db with no password, then SELECT the
+user row. Wrong password → no row → “Invalid username or password.”
+
+Hardened (DCT_HARDENED=1 or Release)
+1. Build the connection with Password = the typed passphrase (plain text;
+   SQLCipher does PBKDF2 itself).
+2. Open() and run a cheap query (for example SELECT COUNT(*) FROM
+   sqlite_master or load the user row).
+3. Success → password was correct. Cache that passphrase (or the
+   open-session factory) on UserSession and use it for every later
+   connection. Do not derive again.
+4. SqliteException with code 26 (SQLITE_NOTADB) → treat as invalid
+   password. Show the same login error, not a crash or “database corrupt.”
+5. Other IO/permission errors → real failure message, not “wrong password.”
+
+Username still matters if you ever have more than one person: after a
+successful open, check that the username exists. For a single-user DCT,
+successful decrypt is enough; the username field can stay for compatibility.
+
+WHAT THE USER WILL FEEL
+
+Situation                         What they see
+--------------------------------  ------------------------------------------
+Debug, bad password               Invalid username or password
+Hardened, bad password            Same message (mapped from error 26)
+Hardened, first run               New encrypted DB in AppData; chosen
+                                  password becomes the key
+Hardened, Debug data              Does not appear — different folder,
+                                  different file
+
+First hardened launch will not see knowlton/knowlton unless you explicitly
+seed that profile (I would not, for production).
+
+STEPS 1–2 ONLY, WHEN YOU GREEN-LIGHT
+
+Swap to Microsoft.Data.Sqlite.Core + SQLitePCLRaw.bundle_e_sqlcipher, and
+add AppSecurityProfile.Detect(). Login/key wiring is step 3–4, after the
+packages and profile exist.
+
+If that login behavior matches what you want, say go on steps 1 and 2 and
+I’ll do only that.
+
+
+------------------------------------------------------------------------------
+THREAD STATUS AFTER THIS TURN
+------------------------------------------------------------------------------
+
+Architecture agreed (You, Cursor, Gemini).
+Application code not changed for hardening.
+Waiting on your green light for Step 1 (packages) and Step 2 (profile).
+
+================================================================================
+END FILE: 08-cursor-login-key-handling.txt
+================================================================================
+
+
+================================================================================
+BEGIN FILE: 09-user-green-light-steps-1-and-2.txt
+================================================================================
+
+FROM:        You
+TO:          Cursor
+DATE:        2026-09-19
+IN REPLY TO: 08-cursor-login-key-handling.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Gemini and I have reviewed file 08. The login lifecycle, caching the key on
+UserSession, and mapping SQLite error 26 (SQLITE_NOTADB) to "Invalid username 
+or password" are approved.
+
+You have the green light to proceed with STEPS 1 and 2 ONLY:
+
+1. Package Swap in AvaloniaDCT.csproj:
+   - Remove Microsoft.Data.Sqlite and SQLitePCLRaw.lib.e_sqlite3 (or any vanilla providers).
+   - Add Microsoft.Data.Sqlite.Core and SQLitePCLRaw.bundle_e_sqlcipher.
+
+2. Create AppSecurityProfile.Detect():
+   - Implement the path resolver and IsHardened logic based on #if DEBUG and
+     the DCT_HARDENED=1 environment variable.
+
+Do not wire the login form or database connections yet. Once Steps 1 and 2 
+compile cleanly, stop and report back.
+
+================================================================================
+END FILE: 09-user-green-light-steps-1-and-2.txt
+================================================================================
+
+
+================================================================================
+BEGIN FILE: 09-5-cursor-code-changes-steps-1-and-2.txt
+================================================================================
+
+FROM:        Cursor
+TO:          You
+DATE:        2026-09-19
+IN REPLY TO: 09-user-green-light-steps-1-and-2.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Code changes made since the SQLite hardening discussion began today.
+
+Scope: Steps 1 and 2 only. Login, SqliteDatabase, App.axaml.cs, backups,
+and UserSession were not modified.
+
+Build: Debug and Release both compiled cleanly after these changes.
+
+
+------------------------------------------------------------------------------
+SUMMARY
+------------------------------------------------------------------------------
+
+  MODIFIED  AvaloniaDCT.csproj
+            Package swap: vanilla SQLite -> SQLCipher stack
+
+  ADDED     Services/AppSecurityProfile.cs
+            Detect() path resolver and IsHardened flag
+
+  UNCHANGED App.axaml.cs
+            LoginViewModel.cs
+            Services/SqliteDatabase.cs
+            Services/DatabaseBackup.cs
+            Models/UserSession.cs
+
+The app still opens CBDB.db the old way (plaintext, next to the exe).
+AppSecurityProfile.Detect() exists but is not called yet.
+
+
+------------------------------------------------------------------------------
+1. AvaloniaDCT.csproj  (package swap)
+------------------------------------------------------------------------------
+
+REMOVED
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
+
+ADDED
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.0" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.11" />
+
+Current package ItemGroup (full):
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3">
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.0" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.11" />
+  </ItemGroup>
+
+
+------------------------------------------------------------------------------
+2. Services/AppSecurityProfile.cs  (new file, full contents)
+------------------------------------------------------------------------------
+
+namespace AvaloniaDCT.Services;
+
+public sealed class AppSecurityProfile
+{
+    public bool IsHardened { get; init; }
+    public string DatabasePath { get; init; } = "";
+
+    public static AppSecurityProfile Detect()
+    {
+        var hardened =
+#if DEBUG
+            string.Equals(
+                Environment.GetEnvironmentVariable("DCT_HARDENED"),
+                "1",
+                StringComparison.Ordinal);
+#else
+            true;
+#endif
+
+        var databasePath = hardened
+            ? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AvaloniaDCT",
+                "CBDB.db")
+            : Path.Combine(AppContext.BaseDirectory, "CBDB.db");
+
+        return new AppSecurityProfile
+        {
+            IsHardened = hardened,
+            DatabasePath = databasePath
+        };
+    }
+}
+
+
+Behavior of Detect():
+
+  Configuration     DCT_HARDENED    IsHardened    DatabasePath
+  --------------    ------------    ----------    ------------------------------------------
+  Debug             unset / other   false         {exe folder}\CBDB.db
+  Debug             1               true          %LocalAppData%\AvaloniaDCT\CBDB.db
+  Release           ignored         true          %LocalAppData%\AvaloniaDCT\CBDB.db
+
+
+------------------------------------------------------------------------------
+NOT CHANGED (intentionally, per step 1–2 stop)
+------------------------------------------------------------------------------
+
+- No SqliteConnectionStringBuilder.Password yet
+- Login does not map SQLITE_NOTADB (26)
+- UserSession does not cache a DB key
+- DatabaseBackup is still File.Copy (correct for later; unused for encryption)
+- Title bar does not say DEVELOPMENT - UNENCRYPTED
+
+
+------------------------------------------------------------------------------
+DOCS CREATED THE SAME DAY (not application code)
+------------------------------------------------------------------------------
+
+  DEV-VS-PRODUCTION-SECURITY.txt          (project root)
+  docs/sqlite-hardening-review/00 through 09
+  this file: 09-5-cursor-code-changes-steps-1-and-2.txt
+
+================================================================================
+END FILE: 09-5-cursor-code-changes-steps-1-and-2.txt
+================================================================================
+
+

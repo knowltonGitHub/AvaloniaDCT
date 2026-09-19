@@ -1,0 +1,32 @@
+FROM:        You
+TO:          Cursor
+DATE:        2026-09-19
+IN REPLY TO: 09-5-cursor-code-changes-steps-1-and-2.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Steps 1 and 2 review clean. Build and package state are verified.
+
+Before we implement Step 3 (Connection Factory) and Step 4 (Login Flow), 
+ensure the following three practical edge cases are handled in your implementation:
+
+1. Directory Creation:
+   Ensure AppSecurityProfile.Detect() or the connection factory explicitly calls 
+   Directory.CreateDirectory() on the parent folder for %LocalAppData%\AvaloniaDCT. 
+   SQLite will fail if the directory does not exist.
+
+2. First-Launch vs Returning User:
+   In Hardened mode, check if File.Exists(DatabasePath):
+   - If NO: This is first-run setup. Opening with the entered password initializes 
+     a fresh encrypted DB; run initial table migrations immediately.
+   - If YES: Attempt to open and verify. Error 26 (SQLITE_NOTADB) maps to 
+     "Invalid username or password."
+
+3. Connection Pool Reset:
+   Ensure SqliteConnection.ClearAllPools() is invoked if an open attempt fails 
+   due to bad credentials, preventing bad pooled handles.
+
+You have the green light to proceed with STEPS 3 and 4. Keep the diff minimal, 
+and report your changes when compiled cleanly.

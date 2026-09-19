@@ -1,0 +1,92 @@
+SQLITE HARDENING REVIEW — READING ORDER
+AvaloniaDCT
+Folder: docs/sqlite-hardening-review
+
+Read the files in numeric order. Each file is one turn in the thread
+(who said it, then the content).
+
+
+  00-INDEX.txt
+      This file.
+
+  01-user-security-questions.txt
+      You asked about SQLite security and what happens if someone
+      steals CBDB.db and opens it in DB Browser.
+
+  02-cursor-stolen-file-recommendations.txt
+      Cursor: the file is fully readable today; what is exposed;
+      layered recommendations (SQLCipher, hashed logins, AppData).
+
+  03-user-dev-vs-production.txt
+      You asked for unencrypted DEV and locked-down production.
+
+  04-cursor-dev-vs-production-plan.txt
+      Cursor: one data layer, two profiles; Debug plaintext;
+      Release always encrypted; DCT_HARDENED=1 dress rehearsal.
+      (Same plan also saved earlier as DEV-VS-PRODUCTION-SECURITY.txt
+      in the project root.)
+
+  05-gemini-architecture-review.txt
+      Gemini: dual-profile is sound; four engineering guardrails
+      (Password builder, no dual SQLite natives, derive key once,
+      File.Copy backups); suggested action plan.
+
+  06-cursor-critique-of-gemini.txt
+      Cursor: agree with the four guardrails; add login/key
+      chicken-and-egg, do not double-KDF, isolated data paths,
+      PRAGMA rekey later.
+
+  07-gemini-agreement-and-roadmap.txt
+      Gemini: agrees with Cursor's nuance; six-step roadmap;
+      green light for steps 1–2 after login/key is understood.
+
+  08-cursor-login-key-handling.txt
+      Cursor: how login uses the SQLCipher key; error code 26
+      mapping; what to implement first vs later. Waiting on
+      your green light for steps 1–2.
+
+  09-user-green-light-steps-1-and-2.txt
+      You: login/key handling approved. Green light for Step 1
+      (package swap) and Step 2 (AppSecurityProfile.Detect())
+      only. Do not wire login or connections yet.
+
+  09-5-cursor-code-changes-steps-1-and-2.txt
+      Cursor: dump of all application code changes made for
+      Steps 1 and 2 (csproj package swap + AppSecurityProfile).
+
+  10-full-thread-for-gemini-review.txt
+      Concatenation of 00 through 09-5 in one file, for upload
+      to Gemini for final review. Not a new discussion turn.
+
+  11-user-green-light-steps-3-and-4.txt
+      You/Gemini: Steps 1–2 verified. Three edge cases for Steps
+      3–4 (create AppData directory, first-run vs returning user,
+      ClearAllPools on failed open). Green light for 3 and 4.
+
+  12-cursor-steps-3-4-plan.txt
+      Cursor: agree with the three edge cases; keep Detect() pure;
+      no knowlton seed on hardened first run; move Initialize()
+      until after passphrase when hardened.
+
+  13-gemini-approve-steps-3-4-refinements.txt
+      Gemini: refinements approved. Green light for Steps 3 and 4.
+
+  14-cursor-ack-steps-3-4-hold.txt
+      Cursor: plan confirmed. No code this turn (per your hold).
+      Ready to implement 3 and 4 on the next go.
+
+  15-user-go-steps-3-and-4.txt
+      You: Go. Implement Steps 3 and 4 only, as summarized.
+
+  16-cursor-steps-3-and-4-diff.txt
+      Cursor: Steps 3 and 4 done. Debug and Release compile clean.
+      Diff summary of App, SqliteDatabase, LoginViewModel.
+
+
+STATUS AT END OF THREAD
+  Steps 1–4 implemented. Backups, DEV title bar, and launch profile
+  remain later (Steps 5–6 / parked items).
+
+PROCESS
+  Each Gemini paste is saved as a numbered file, then Cursor’s
+  reply is saved as the next number so both sides are on disk.

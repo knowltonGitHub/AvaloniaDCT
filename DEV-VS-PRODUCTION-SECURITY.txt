@@ -1,0 +1,153 @@
+DEV vs PRODUCTION SQLite SECURITY
+AvaloniaDCT — discussion notes for offline review
+Date: 2026-09-19
+
+Do not implement this until it has been reviewed. This file is a copy of the
+proposed approach only.
+
+
+------------------------------------------------------------------------------
+GOAL
+------------------------------------------------------------------------------
+
+Want everything open and unencrypted during DEV so debugging does not require
+jumping through hoops. Want everything locked down, hardened, and encrypted
+for release to production.
+
+The sweet spot is one data layer, two security profiles — not two apps.
+Debug stays a normal SQLite file you can open in DB Browser. Release always
+encrypts and cannot be switched off.
+
+
+------------------------------------------------------------------------------
+RULE
+------------------------------------------------------------------------------
+
+#if DEBUG only chooses the profile. Encryption, hashing, and AppData paths
+still compile in both configurations so the wild path can be tested before
+ship.
+
+Daily work: normal Debug (plaintext SQLite, DB Browser works).
+Before a release: run hardened Debug once, then publish Release.
+If encryption only exists in #if !DEBUG, breakage will be found by a customer
+instead of by us.
+
+
+------------------------------------------------------------------------------
+FLOW
+------------------------------------------------------------------------------
+
+App start
+    -> Security profile
+        -> Debug, default
+            -> Dev profile
+            -> Vanilla SQLite CBDB.db next to exe
+            -> Seed knowlton/knowlton
+            -> Title bar: DEVELOPMENT - UNENCRYPTED
+        -> Release always, or Debug plus DCT_HARDENED=1
+            -> Hardened profile
+            -> SQLCipher CBDB.db in LocalAppData
+            -> Key derived from login password
+            -> No default password, hashed logins
+
+
+------------------------------------------------------------------------------
+DEV PROFILE (F5 / dotnet run)
+------------------------------------------------------------------------------
+
+- Standard SQLite, no key — DB Browser works
+- File next to the exe (bin\Debug\net10.0\CBDB.db)
+- Seed user, plaintext backups, title bar screams that it is unencrypted
+- Same CRUD/SQL as production; this is not a fake database
+
+
+------------------------------------------------------------------------------
+PRODUCTION PROFILE (dotnet run -c Release / published installer)
+------------------------------------------------------------------------------
+
+- SQLCipher (or equivalent). Without the key, DB Browser is useless
+- Key from the user's DCT password via Argon2/PBKDF2 — never a key in the binary
+- DB under %LocalAppData%\AvaloniaDCT\, not the program folder
+- No knowlton seed; hash login passwords even though the file is encrypted
+- Backups are encrypted too, or extra copies beside the exe are not written
+- Hardened mode cannot be disabled in Release. That is what makes it safe
+  in the wild.
+
+
+------------------------------------------------------------------------------
+HOW TO TEST THE LOCKED PATH WITHOUT HOOPS EVERY DAY
+------------------------------------------------------------------------------
+
+Keep a second launch profile, e.g. "DCT (Hardened)":
+
+    "environmentVariables": { "DCT_HARDENED": "1" }
+
+Daily work: normal Debug.
+Before a release: run hardened Debug once, then:
+
+    dotnet publish -c Release
+
+
+------------------------------------------------------------------------------
+ONE CONNECTION HELPER
+------------------------------------------------------------------------------
+
+public sealed class AppSecurityProfile
+{
+    public bool IsHardened { get; init; }
+    public string DatabasePath { get; init; } = "";
+}
+
+public static AppSecurityProfile Detect()
+{
+    var hardened =
+#if DEBUG
+        Environment.GetEnvironmentVariable("DCT_HARDENED") == "1";
+#else
+        true;
+#endif
+    return new AppSecurityProfile
+    {
+        IsHardened = hardened,
+        DatabasePath = hardened
+            ? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AvaloniaDCT",
+                "CBDB.db")
+            : Path.Combine(AppContext.BaseDirectory, "CBDB.db")
+    };
+}
+
+On open: if IsHardened, PRAGMA key from the login password; otherwise open as
+today. The rest of SqliteDatabase stays the same.
+
+
+------------------------------------------------------------------------------
+DO NOT
+------------------------------------------------------------------------------
+
+- Ship a Debug build
+- Put a production key in source
+- Use Debugger.IsAttached (F5 vs "run without debugging" would change security)
+- Maintain two schemas or two NVM-style stacks
+
+
+------------------------------------------------------------------------------
+SHIP CHECKLIST
+------------------------------------------------------------------------------
+
+- dotnet publish -c Release
+- First launch creates an encrypted DB in AppData
+- Copy that file to another PC -> DB Browser cannot read it
+- Wrong password -> no data
+- Debug F5 still shows tags in DB Browser in plaintext
+
+That is the split: convenience is a Debug default, lock-down is a Release
+invariant, and DCT_HARDENED=1 is the dress rehearsal.
+
+
+------------------------------------------------------------------------------
+STATUS
+------------------------------------------------------------------------------
+
+Not implemented. Saved for offline review before any code changes.

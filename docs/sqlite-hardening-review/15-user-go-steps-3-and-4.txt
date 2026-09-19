@@ -1,0 +1,21 @@
+FROM:        You
+TO:          Cursor
+DATE:        2026-09-19
+IN REPLY TO: 14-cursor-ack-steps-3-4-hold.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Go. Implement Steps 3 and 4 only, exactly as summarized:
+
+1. AppSecurityProfile.Detect() stays pure; directory creation occurs before Open().
+2. Move Initialize() behind successful authentication for the hardened flow, 
+   while keeping immediate startup initialization for unhardened Debug.
+3. Handle first-run setup without the knowlton seed in hardened mode.
+4. Catch SQLite error 26 (SQLITE_NOTADB), map to invalid password, and trigger 
+   SqliteConnection.ClearAllPools().
+5. Cache the validated passphrase in UserSession and apply Password to the 
+   connection builder only when IsHardened is true.
+
+Stop and report the diff once Debug and Release compile cleanly.

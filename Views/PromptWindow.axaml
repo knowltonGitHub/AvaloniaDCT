@@ -1,0 +1,41 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AvaloniaDCT.ViewModels"
+        x:Class="AvaloniaDCT.Views.PromptWindow"
+        x:DataType="vm:PromptViewModel"
+        Title="{Binding Title}"
+        Width="460"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False">
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Escape" Command="{Binding CancelCommand}" />
+    </Window.KeyBindings>
+
+    <StackPanel Margin="20" Spacing="10">
+        <TextBlock Text="{Binding NameLabel}"
+                   IsVisible="{Binding ShowName}" />
+        <TextBox Text="{Binding Name}"
+                 IsVisible="{Binding ShowName}" />
+
+        <TextBlock Text="{Binding ValueLabel}"
+                   IsVisible="{Binding ShowValue}" />
+        <TextBox Text="{Binding Value}"
+                 IsVisible="{Binding ShowValue}"
+                 AcceptsReturn="{Binding ValueIsMultiline}"
+                 TextWrapping="Wrap"
+                 MinHeight="100" />
+
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8">
+            <Button Content="Cancel"
+                    MinWidth="90"
+                    Command="{Binding CancelCommand}" />
+            <Button Content="Save"
+                    MinWidth="90"
+                    Command="{Binding SaveCommand}" />
+        </StackPanel>
+    </StackPanel>
+</Window>

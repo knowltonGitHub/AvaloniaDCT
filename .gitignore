@@ -427,3 +427,8 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# DCT SQLite data (clipboard values and passwords — never publish)
+CBDB.db
+CBDB*.db
+*.db

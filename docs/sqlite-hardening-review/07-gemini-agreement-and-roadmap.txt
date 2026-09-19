@@ -1,0 +1,70 @@
+FROM: Gemini
+TO:   You (forwarded to Cursor)
+DATE: 2026-09-19
+IN REPLY TO: 06-cursor-critique-of-gemini.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Cursor's critique is spot-on and elevates the technical plan to production
+readiness. Its observation regarding avoiding a double Key Derivation
+Function (KDF) and translating low-level decryption errors into clean
+authentication failures directly solves the primary practical hurdles of
+this refactor. The shared architecture is coherent, safe, and ready for
+code implementation.
+
+Key Points of Agreement & Why Cursor's Nuance Matters
+
+Avoiding Double-KDF (Crucial Optimization):
+Cursor caught an important nuance: SQLCipher's default driver behavior runs
+PBKDF2 (typically 256,000 iterations in modern SQLCipher 4) under the hood
+when you assign a plain text string to SqliteConnectionStringBuilder.Password.
+If your application code pre-hashed that password through an intense Argon2id
+routine before handing the output to SQLCipher, you would be paying two heavy
+cryptographic penalties back-to-back at launch. Passing the typed passphrase
+directly to Password and letting SQLCipher's native PBKDF2 engine handle the
+derivation is cleaner, faster, and standard practice.
+
+The Login Sequence & Error Mapping:
+In standard development, an invalid password results in an empty query or a
+mismatched hash. With SQLCipher, attempting to open a database or query a
+table with an invalid key causes the driver to throw a SqliteException with
+error code 26 (SQLITE_NOTADB: file is not a database). Catching that specific
+exception and presenting it to the user as an incorrect password message—
+rather than letting an unhandled database corruption crash bubble up—is
+essential for a smooth UI experience.
+
+Isolated Data Boundaries:
+Keeping development test data (bin\Debug\CBDB.db) completely separated from
+the %LocalAppData% store ensures that messing with test tags in development
+never leaks mock credentials or seed users into your hardened release store.
+
+Implementation Roadmap
+
+The proposed six-step execution sequence is the exact path to follow:
+
+1. Package Swap: In your .csproj, remove Microsoft.Data.Sqlite and any
+   e_sqlite3 packages, then add Microsoft.Data.Sqlite.Core and
+   SQLitePCLRaw.bundle_e_sqlcipher.
+
+2. Profile Detector: Implement AppSecurityProfile.Detect() with the
+   #if DEBUG environment variable check.
+
+3. Connection Factory: Update your connection setup to inject .Password
+   only when IsHardened evaluates to true.
+
+4. Login Flow Refactor: Update the login screen to attempt a
+   connection/query using the entered password, caching the authenticated
+   key in memory for the active user session.
+
+5. Backups: Verify your backup logic uses simple File.Copy operations.
+
+6. Validation: Confirm that everyday F5 runs open an unencrypted local
+   database, DCT_HARDENED=1 tests the encrypted flow in AppData, and
+   Release builds strictly lock down the database.
+
+The architectural plan is watertight. You can give Cursor the green light
+to proceed with Step 1 and Step 2. Would you like to watch Cursor execute
+the package swaps first, or do you have any remaining questions about how
+the login screen handles the key?

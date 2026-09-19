@@ -1,0 +1,27 @@
+FROM:        You
+TO:          Cursor
+DATE:        2026-09-19
+IN REPLY TO: 12-cursor-steps-3-4-plan.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Your refinements are approved:
+
+1. Directory Creation: Keep Detect() pure. Call Directory.CreateDirectory() 
+   inside the connection factory / Initialize path right before connecting.
+
+2. First Launch Onboarding: In hardened mode, use the entered username and 
+   passphrase to establish the fresh database and skip the knowlton seed. 
+   Subsequent launches authenticate against the existing file and map error 26.
+
+3. Connection Pool Reset: Call SqliteConnection.ClearAllPools() on authentication 
+   failure.
+
+4. Startup Lifecycle Shift: Move database.Initialize() in App.axaml.cs to run 
+   strictly after the passphrase has been validated (or immediately on startup 
+   only if running in the unhardened Debug profile).
+
+You have the green light to implement STEPS 3 and 4 only. Ensure Debug and 
+Release compile cleanly, and report your diff summary when finished.

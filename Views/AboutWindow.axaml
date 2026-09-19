@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AvaloniaDCT.Views.AboutWindow"
+        Title="About Desktop Clipboard Toolkit"
+        Width="480"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False">
+    <StackPanel Margin="24" Spacing="12">
+        <TextBlock Text="Desktop Clipboard Toolkit"
+                   FontSize="22"
+                   FontWeight="SemiBold" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Creator:" FontWeight="SemiBold" Width="80" />
+            <TextBlock Text="Tom Knowlton" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Contact:" FontWeight="SemiBold" Width="80" />
+            <TextBlock Text="softwaredevr@gmail.com" />
+        </StackPanel>
+        <Button Content="OK"
+                HorizontalAlignment="Right"
+                MinWidth="90"
+                Click="CloseButton_OnClick" />
+    </StackPanel>
+</Window>

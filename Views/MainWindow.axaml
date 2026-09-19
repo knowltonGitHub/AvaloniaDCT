@@ -1,0 +1,99 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AvaloniaDCT.ViewModels"
+        x:Class="AvaloniaDCT.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="{Binding WindowTitle}"
+        Width="1100"
+        Height="560"
+        MinWidth="800"
+        MinHeight="420"
+        WindowStartupLocation="CenterScreen">
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Preferences" Command="{Binding OpenPreferencesCommand}" />
+                <Separator />
+                <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About" Command="{Binding OpenAboutCommand}" />
+            </MenuItem>
+        </Menu>
+
+        <Grid Margin="12" ColumnDefinitions="* * *" ColumnSpacing="12">
+            <Border BorderBrush="#66808080"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="10">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Tags"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,8" />
+                    <StackPanel DockPanel.Dock="Bottom"
+                                Orientation="Horizontal"
+                                Spacing="8"
+                                Margin="0,8,0,0">
+                        <Button Content="Add" Command="{Binding AddTagCommand}" />
+                        <Button Content="Rename" Command="{Binding RenameTagCommand}" />
+                        <Button Content="Delete" Command="{Binding DeleteTagCommand}" />
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding Tags}"
+                             SelectedItem="{Binding SelectedTag}"
+                             DoubleTapped="TagsList_OnDoubleTapped" />
+                </DockPanel>
+            </Border>
+
+            <Border Grid.Column="1"
+                    BorderBrush="#66808080"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="10">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Items"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,8" />
+                    <StackPanel DockPanel.Dock="Bottom"
+                                Orientation="Horizontal"
+                                Spacing="8"
+                                Margin="0,8,0,0">
+                        <Button Content="Add" Command="{Binding AddItemCommand}" />
+                        <Button Content="Rename" Command="{Binding RenameItemCommand}" />
+                        <Button Content="Delete" Command="{Binding DeleteItemCommand}" />
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding Items}"
+                             SelectedItem="{Binding SelectedItem}"
+                             DoubleTapped="ItemsList_OnDoubleTapped" />
+                </DockPanel>
+            </Border>
+
+            <Border Grid.Column="2"
+                    BorderBrush="#66808080"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="10">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Value"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,8" />
+                    <StackPanel DockPanel.Dock="Bottom"
+                                Orientation="Horizontal"
+                                Spacing="8"
+                                Margin="0,8,0,0">
+                        <Button Content="Copy" Command="{Binding CopyValueCommand}" />
+                        <Button Content="Open URL" Command="{Binding OpenUrlCommand}" />
+                        <Button Content="Edit" Command="{Binding EditValueCommand}" />
+                    </StackPanel>
+                    <TextBox Text="{Binding SelectedValue}"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             DoubleTapped="ValueBox_OnDoubleTapped" />
+                </DockPanel>
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>

@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AvaloniaDCT.ViewModels"
+        x:Class="AvaloniaDCT.Views.MessageWindow"
+        x:DataType="vm:MessageViewModel"
+        Title="{Binding Title}"
+        Width="420"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False">
+    <StackPanel Margin="20" Spacing="16">
+        <TextBlock Text="{Binding Message}"
+                   TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8">
+            <Button Content="Cancel"
+                    MinWidth="90"
+                    IsVisible="{Binding IsConfirm}"
+                    Command="{Binding CancelCommand}" />
+            <Button Content="{Binding AcceptText}"
+                    MinWidth="90"
+                    Command="{Binding AcceptCommand}" />
+        </StackPanel>
+    </StackPanel>
+</Window>

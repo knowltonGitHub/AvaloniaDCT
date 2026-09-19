@@ -1,0 +1,25 @@
+FROM:        You
+TO:          Cursor
+DATE:        2026-09-19
+IN REPLY TO: 08-cursor-login-key-handling.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Gemini and I have reviewed file 08. The login lifecycle, caching the key on
+UserSession, and mapping SQLite error 26 (SQLITE_NOTADB) to "Invalid username 
+or password" are approved.
+
+You have the green light to proceed with STEPS 1 and 2 ONLY:
+
+1. Package Swap in AvaloniaDCT.csproj:
+   - Remove Microsoft.Data.Sqlite and SQLitePCLRaw.lib.e_sqlite3 (or any vanilla providers).
+   - Add Microsoft.Data.Sqlite.Core and SQLitePCLRaw.bundle_e_sqlcipher.
+
+2. Create AppSecurityProfile.Detect():
+   - Implement the path resolver and IsHardened logic based on #if DEBUG and
+     the DCT_HARDENED=1 environment variable.
+
+Do not wire the login form or database connections yet. Once Steps 1 and 2 
+compile cleanly, stop and report back.

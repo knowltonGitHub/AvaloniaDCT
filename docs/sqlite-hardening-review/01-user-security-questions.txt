@@ -1,0 +1,12 @@
+FROM: You (project owner)
+TO:   Cursor
+DATE: 2026-09-19
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+let's discuss the security issues.  Recommendations for keeping SQLite
+database secure?
+
+What if somebody stole the entire CBDB file and opened it with DB Broswer?

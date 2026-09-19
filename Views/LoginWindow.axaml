@@ -1,0 +1,40 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AvaloniaDCT.ViewModels"
+        x:Class="AvaloniaDCT.Views.LoginWindow"
+        x:DataType="vm:LoginViewModel"
+        Title="Desktop Clipboard Toolkit - Login"
+        Width="380"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterScreen"
+        CanResize="False">
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Enter" Command="{Binding LoginCommand}" />
+    </Window.KeyBindings>
+
+    <StackPanel Margin="24" Spacing="12">
+        <TextBlock Text="Desktop Clipboard Toolkit"
+                   FontSize="20"
+                   FontWeight="SemiBold" />
+        <TextBlock Text="Sign in to continue."
+                   Opacity="0.75" />
+
+        <TextBlock Text="User name" />
+        <TextBox Text="{Binding UserName}"
+                 PlaceholderText="User name" />
+
+        <TextBlock Text="Password" />
+        <TextBox Text="{Binding Password}"
+                 PasswordChar="*"
+                 PlaceholderText="Password" />
+
+        <TextBlock Text="{Binding ErrorMessage}"
+                   Foreground="#C62828"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+        <Button Content="Login"
+                HorizontalAlignment="Right"
+                MinWidth="100"
+                Command="{Binding LoginCommand}" />
+    </StackPanel>
+</Window>

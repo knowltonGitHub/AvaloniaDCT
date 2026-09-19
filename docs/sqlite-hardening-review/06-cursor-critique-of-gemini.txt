@@ -1,0 +1,93 @@
+FROM: Cursor
+TO:   You
+DATE: 2026-09-19
+IN REPLY TO: 05-gemini-architecture-review.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Gemini’s review is solid, and I would follow those four engineering
+guardrails. A few of them are sharper than my original note, and there is
+one architectural catch neither of us spelled out clearly enough.
+
+I AGREE WITH GEMINI
+
+The dual-profile design is the right one: Debug defaults to open, Release
+cannot be downgraded, DCT_HARDENED=1 is the dress rehearsal.
+
+The four guardrails are real, not style nits:
+
+1. SqliteConnectionStringBuilder.Password — yes. Microsoft.Data.Sqlite
+   applies the SQLCipher key at Open(), which is the safe moment.
+   Hand-rolling PRAGMA key after other statements is a classic “file is
+   not a database” bug.
+
+2. One native SQLite, not two — yes, and this is easy to get wrong in this
+   repo. We currently reference Microsoft.Data.Sqlite (which pulls vanilla
+   e_sqlite3) plus SQLitePCLRaw.lib.e_sqlite3. Hardening must REMOVE those
+   and use only Microsoft.Data.Sqlite.Core + SQLitePCLRaw.bundle_e_sqlcipher.
+   Mixing them causes collisions, not a fallback.
+
+3. Derive once at login, cache on the session — yes. Do not re-hash on
+   every query.
+
+4. File.Copy backups — yes. A filesystem copy of an encrypted DB stays
+   encrypted. SQL VACUUM INTO / export is where you accidentally create
+   plaintext.
+
+SQLCipher without a password opening a normal SQLite file is also correct.
+That is how one driver can serve both profiles.
+
+WHERE I WOULD TIGHTEN GEMINI’S WRITE-UP
+
+Login and encryption share the same secret. Today we SELECT from user to
+check the password. In hardened mode the file is locked with that password,
+so you cannot read user until Open() succeeds. Login becomes:
+
+  1. Derive/use the typed password as the DB key
+  2. Try Open()
+  3. Success means the password was correct (then optionally check username
+     / password hash inside)
+
+Wrong password looks like a corrupt or undecryptable file. The UI must say
+“invalid password,” not “database error.” This is the biggest design detail
+Gemini’s action plan skipped.
+
+Do not double-KDF unless you mean to. SQLCipher already runs PBKDF2 on
+builder.Password. Adding Argon2 and leaving SQLCipher’s default KDF makes
+login slow for little gain. Simplest production choice: pass the user
+passphrase through Password and let SQLCipher do the KDF. Keep Argon2 only
+if you pass a raw key and turn SQLCipher’s KDF down on purpose.
+
+Dev data will not follow you into production. Hardened mode uses a different
+path (LocalAppData) and a key. First Release launch is an empty encrypted DB,
+not a magically locked copy of bin\Debug\CBDB.db. Opening a plaintext file
+with a password fails. That is good. If you want sample tags in a hardened
+test, import them explicitly.
+
+Password change needs PRAGMA rekey later. Not required for v1, but don’t
+paint yourselves into “the login password can never change.”
+
+DEV backups can stay plaintext. I would not disable backups in Debug. They
+are useful. Just never copy a hardened AppData DB into the Debug folder
+“so I can look at it.”
+
+WHAT I WOULD TELL THE OTHER REVIEWER
+
+Gemini’s package and connection-string guidance should be treated as
+requirements, not suggestions. Combined with our profile split, the
+implementation order should be:
+
+  1. Swap to Core + bundle_e_sqlcipher (delete the vanilla SQLite packages).
+  2. AppSecurityProfile.Detect().
+  3. One connection factory: set Password only when IsHardened.
+  4. Change login so hardened open is authentication; cache that key on
+     the session.
+  5. Keep File.Copy backups.
+  6. Prove F5 = plaintext next to the exe, DCT_HARDENED=1 = encrypted in
+     AppData, Release = always hardened.
+
+I would not start coding until you are happy with that login/key
+chicken-and-egg behavior. Everything else in Gemini’s note is aligned with
+how I would build it.

@@ -1,0 +1,64 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AvaloniaDCT.ViewModels"
+        x:Class="AvaloniaDCT.Views.PreferencesWindow"
+        x:DataType="vm:PreferencesViewModel"
+        Title="Preferences"
+        Width="560"
+        Height="420"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False">
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Bottom"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8"
+                    Margin="0,12,0,0">
+            <Button Content="Cancel"
+                    MinWidth="90"
+                    Command="{Binding CancelCommand}" />
+            <Button Content="Save"
+                    MinWidth="90"
+                    Command="{Binding SaveCommand}" />
+        </StackPanel>
+
+        <TabControl>
+            <TabItem Header="Email">
+                <StackPanel Margin="16" Spacing="8">
+                    <TextBlock Text="Enter your Gmail SMTP settings."
+                               TextWrapping="Wrap"
+                               Opacity="0.8" />
+                    <TextBlock Text="From Address" />
+                    <TextBox Text="{Binding FromAddress}" />
+                    <TextBlock Text="Host" />
+                    <TextBox Text="{Binding Host}" />
+                    <TextBlock Text="Port" />
+                    <TextBox Text="{Binding Port}" />
+                    <TextBlock Text="User name" />
+                    <TextBox Text="{Binding UserName}" />
+                    <TextBlock Text="Password" />
+                    <TextBox Text="{Binding Password}" PasswordChar="*" />
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Home Network Settings">
+                <StackPanel Margin="16" Spacing="12">
+                    <TextBlock Text="Source (your PC)" FontWeight="SemiBold" />
+                    <Grid ColumnDefinitions="80,*" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="8">
+                        <TextBlock Text="IP" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1" Text="{Binding SourceIp}" />
+                        <TextBlock Grid.Row="1" Text="Port" VerticalAlignment="Center" />
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SourcePort}" />
+                    </Grid>
+                    <TextBlock Text="Destination" FontWeight="SemiBold" Margin="0,8,0,0" />
+                    <Grid ColumnDefinitions="80,*" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="8">
+                        <TextBlock Text="IP" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1" Text="{Binding DestinationIp}" />
+                        <TextBlock Grid.Row="1" Text="Port" VerticalAlignment="Center" />
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding DestinationPort}" />
+                    </Grid>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

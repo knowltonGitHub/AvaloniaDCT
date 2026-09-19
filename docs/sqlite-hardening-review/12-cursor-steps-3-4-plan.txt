@@ -1,0 +1,51 @@
+FROM:        Cursor
+TO:          You
+DATE:        2026-09-19
+IN REPLY TO: 11-user-green-light-steps-3-and-4.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Gemini’s three points are right. I would take all of them, with these
+details:
+
+1. Create the AppData folder
+   SQLite will not create %LocalAppData%\AvaloniaDCT. I would call
+   Directory.CreateDirectory in the connection factory / Initialize, not
+   in Detect(). Detect() should only choose the path; creating folders as
+   a side effect of reading a profile is harder to test and surprising.
+
+2. First launch vs returning user
+   That split is the login model we already agreed on. One extra that
+   Gemini did not spell out: first hardened run must create the user from
+   what they typed. Today Initialize() seeds knowlton/knowlton if user is
+   empty. In hardened mode, do not seed that. After a successful first
+   Open(), create tables and insert the username they entered (the
+   passphrase is the SQLCipher key; we should not keep treating a row in
+   user as the real secret).
+
+   If the file already exists, Open() + error 26 → “Invalid username or
+   password.” If Open() works, then check the username.
+
+3. ClearAllPools() on failed open
+   Yes, for this desktop app. Microsoft.Data.Sqlite can keep a bad handle.
+   Clearing pools on error 26 is cheap and correct. It clears every SQLite
+   pool in the process, which is fine while we have one database.
+
+The catch that actually drives Steps 3–4
+
+Startup today does this before login in App.axaml.cs:
+
+    var database = new SqliteDatabase();
+    database.Initialize();
+    var loginViewModel = new LoginViewModel(database);
+
+In hardened mode that is illegal: you cannot open or migrate until the
+user has typed the passphrase. Steps 3–4 have to move Initialize() to
+after a successful login open (and pass AppSecurityProfile + cached
+passphrase into the factory). Debug can keep the old order: open
+plaintext, then check the user row.
+
+I would implement it that way, keep the diff to profile + factory +
+login/App startup, and leave backups as File.Copy.

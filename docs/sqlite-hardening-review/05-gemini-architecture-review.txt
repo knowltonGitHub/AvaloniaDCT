@@ -1,0 +1,115 @@
+FROM: Gemini
+TO:   You (forwarded to Cursor)
+DATE: 2026-09-19
+IN REPLY TO: 04-cursor-dev-vs-production-plan.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+SQLite Hardening Architecture Review & Recommendations
+
+Target Project: AvaloniaDCT
+Scope: Review of dual-profile Dev vs. Hardened implementation plan
+
+Overall Assessment
+
+The two-profile architecture (DCT_HARDENED=1 flag in Debug, unconditional
+hardening in Release) is sound and safe. It avoids the "ship-day cliff"
+where encryption is only ever tested in Release without debugging symbols,
+while preserving daily developer ergonomics.
+
+Key Architectural Validations
+
+Dual-Profile Decoupling:
+
+Using #if DEBUG strictly to toggle profiles rather than conditional
+compilation around the data layer ensures the production code path is
+continuously validated.
+
+Forcing IsHardened = true unconditionally in #else ensures Release binaries
+cannot be tricked or downgraded via environment variables.
+
+Visual Development Indicator:
+
+Appending DEVELOPMENT - UNENCRYPTED to the title bar prevents test instances
+and plaintext development artifacts from being mistaken for secure credential
+stores.
+
+Implementation Guardrails & Technical Catches
+
+Ensure the following 4 engineering guidelines are applied during code
+generation:
+
+1. Connection String Password vs. Raw PRAGMA Key
+
+Do not issue raw PRAGMA key = ... calls manually post-connection unless
+strictly necessary. When using Microsoft.Data.Sqlite.Core with
+SQLitePCLRaw.bundle_e_sqlcipher, supply the key directly through
+SqliteConnectionStringBuilder:
+
+    var builder = new SqliteConnectionStringBuilder
+    {
+        DataSource = profile.DatabasePath,
+        Mode = SqliteOpenMode.ReadWriteCreate
+    };
+
+    if (profile.IsHardened)
+    {
+        // Sets the underlying SQLCipher key transparently
+        builder.Password = derivedKeyOrPassphrase;
+    }
+
+    using var connection = new SqliteConnection(builder.ConnectionString);
+    connection.Open();
+
+
+2. Prevent Native SQLite DLL Collisions
+
+Do not reference standard Microsoft.Data.Sqlite alongside
+SQLitePCLRaw.bundle_e_sqlcipher.
+
+Reference only:
+
+- Microsoft.Data.Sqlite.Core
+- SQLitePCLRaw.bundle_e_sqlcipher
+
+SQLitePCLRaw.bundle_e_sqlcipher can open completely unencrypted vanilla
+SQLite files without a password, allowing the exact same driver to power
+both the Dev profile and Hardened profile seamlessly.
+
+3. Key Derivation Lifecycle & Performance
+
+If using PBKDF2 or Argon2id to derive the database encryption key, execute
+that key derivation once at the authentication boundary (login screen).
+
+Do not derive keys inline inside recurring data access loops or property
+accessors; doing so introduces noticeable UI stutter (200–500ms CPU spikes
+per connection).
+
+Cache the derived key bytes in an active session object, and consume that
+cached key when opening connections.
+
+4. Backup Pipeline Integrity
+
+Ensure backup routines do not create accidental plaintext clones.
+
+If using filesystem copy (File.Copy(source, backupPath)), the backup
+inherits the source file's encryption automatically.
+
+If exporting or vacuuming via SQL, ensure target databases specify the
+encryption key, or restrict automated backups from running when unencrypted.
+
+Suggested Action Plan for Cursor
+
+- Add Microsoft.Data.Sqlite.Core and SQLitePCLRaw.bundle_e_sqlcipher to the
+  project file.
+- Implement AppSecurityProfile.Detect() with the #if DEBUG environment
+  variable check.
+- Update database connection factories to configure
+  SqliteConnectionStringBuilder.Password conditionally based on
+  profile.IsHardened.
+- Verify standard F5 launch opens unencrypted CBDB.db in
+  AppContext.BaseDirectory and works in DB Browser.
+- Verify DCT_HARDENED=1 creates an encrypted CBDB.db in
+  %LocalAppData%\AvaloniaDCT\.

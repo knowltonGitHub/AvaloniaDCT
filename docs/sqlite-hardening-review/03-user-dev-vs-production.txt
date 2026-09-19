@@ -1,0 +1,15 @@
+FROM: You (project owner)
+TO:   Cursor
+DATE: 2026-09-19
+IN REPLY TO: 02-cursor-stolen-file-recommendations.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Here is my thinking.   I am wanting to have everything open and unencrypted
+during DEV so I can debug without jumping through hoops.   But I want
+everything locked down, hardened and encrypted for release to production.
+
+How do you achieve that sweet spot of "just get it working" for DEV and
+professionally prepared for the WILD after production release?

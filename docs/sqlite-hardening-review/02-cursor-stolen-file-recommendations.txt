@@ -1,0 +1,87 @@
+FROM: Cursor
+TO:   You
+DATE: 2026-09-19
+IN REPLY TO: 01-user-security-questions.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Yes. If someone copies CBDB.db and opens it in DB Browser for SQLite, they
+get the whole database. SQLite is an unencrypted file by default. The login
+screen only gates the app; it does not protect the file on disk.
+
+WHAT THEY WOULD SEE IMMEDIATELY
+
+Table              Exposed
+-----------------  ----------------------------------------------------------
+user               Usernames and login passwords in plain text (including
+                   the seeded knowlton / knowlton)
+tagitemvaltable    Every tag, item, and clipboard value — VPN passwords,
+                   tokens, notes, URLs
+preferences        SMTP username and Gmail password in plain text
+
+The timestamped copies next to it (CBDB…_BEFORE_USE_….db, AUTO_BACKUP, and
+so on) are equally readable. In a dotnet run / Debug build they all sit
+under bin\Debug\net10.0\, which is easy to grab.
+
+So the real secret is not the login form. It is the file.
+
+WHAT ACTUALLY HELPS, IN ORDER
+
+1. Encrypt the database at rest (this is the one that answers “stolen
+   CBDB”).
+   Use SQLCipher (or equivalent) so the file is ciphertext. Without the
+   key, DB Browser shows garbage. That is the correct fix for a stolen
+   file.
+
+2. Derive the DB key from a passphrase the user types at login — not from
+   a key baked into the app.
+   A hardcoded key in the binary is only slightly better than plaintext.
+   If DCT’s login password also unlocks SQLCipher, stealing the file
+   without that password is useless.
+
+   Windows DPAPI is a weaker alternative: it protects the file if it is
+   copied to another machine / another Windows user, but anyone already
+   logged in as you can still open it.
+
+3. Hash login passwords separately with Argon2id or PBKDF2.
+   That stops a stolen file from revealing reusable login passwords. It
+   does not hide clipboard values. You still need (1).
+
+4. Stop storing SMTP passwords in the same table in plaintext.
+   Encrypt that column with the same user-derived key, or use Windows
+   Credential Manager / OS secret storage.
+
+5. Move the file out of the build folder.
+   Put it under %LocalAppData%\AvaloniaDCT\ (or similar), not bin\Debug.
+   Keep backups in that same encrypted store, or encrypt them the same
+   way. Add CBDB*.db to .gitignore so it never lands in git.
+
+6. Drop the default knowlton/knowlton seed for anything beyond first-run
+   setup, and require a password change on first launch.
+
+WHAT DOES NOT HELP AGAINST DB BROWSER
+
+- The current login check
+- NTFS permissions (the thief already has the file)
+- Parameterized SQL (that only stops injection while the app is running)
+- Hiding the file extension or renaming it .dat
+
+PRACTICAL RECOMMENDATION FOR DCT
+
+Treat this as a local password manager that happens to use SQLite. The
+minimum bar:
+
+- SQLCipher on CBDB.db
+- Key derived from the user’s DCT password at login
+- Hash the login password; never store it in user.Password as text
+- AppData location; encrypt or stop writing plaintext backups
+- Existing plaintext CBDB.db files need a one-time migration (open old
+  file, write into a new encrypted one, then delete/shred the old copies)
+
+Until that is in place, assume anyone with the file can read every
+clipboard value and both passwords.
+
+(Offer to implement SQLCipher + password-derived key + AppData storage
+as a next pass if wanted.)

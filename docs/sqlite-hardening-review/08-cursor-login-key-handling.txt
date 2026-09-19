@@ -1,0 +1,69 @@
+FROM: Cursor
+TO:   You
+DATE: 2026-09-19
+IN REPLY TO: 07-gemini-agreement-and-roadmap.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Gemini and I are aligned. I would not start the package swap until you say
+go — Gemini left you a real question about login/key handling, and that
+should be settled first.
+
+HOW LOGIN USES THE KEY
+
+There is no separate “database password.” What the user types is the
+SQLCipher passphrase.
+
+Debug (default)
+Same as today: open bin\Debug\...\CBDB.db with no password, then SELECT the
+user row. Wrong password → no row → “Invalid username or password.”
+
+Hardened (DCT_HARDENED=1 or Release)
+1. Build the connection with Password = the typed passphrase (plain text;
+   SQLCipher does PBKDF2 itself).
+2. Open() and run a cheap query (for example SELECT COUNT(*) FROM
+   sqlite_master or load the user row).
+3. Success → password was correct. Cache that passphrase (or the
+   open-session factory) on UserSession and use it for every later
+   connection. Do not derive again.
+4. SqliteException with code 26 (SQLITE_NOTADB) → treat as invalid
+   password. Show the same login error, not a crash or “database corrupt.”
+5. Other IO/permission errors → real failure message, not “wrong password.”
+
+Username still matters if you ever have more than one person: after a
+successful open, check that the username exists. For a single-user DCT,
+successful decrypt is enough; the username field can stay for compatibility.
+
+WHAT THE USER WILL FEEL
+
+Situation                         What they see
+--------------------------------  ------------------------------------------
+Debug, bad password               Invalid username or password
+Hardened, bad password            Same message (mapped from error 26)
+Hardened, first run               New encrypted DB in AppData; chosen
+                                  password becomes the key
+Hardened, Debug data              Does not appear — different folder,
+                                  different file
+
+First hardened launch will not see knowlton/knowlton unless you explicitly
+seed that profile (I would not, for production).
+
+STEPS 1–2 ONLY, WHEN YOU GREEN-LIGHT
+
+Swap to Microsoft.Data.Sqlite.Core + SQLitePCLRaw.bundle_e_sqlcipher, and
+add AppSecurityProfile.Detect(). Login/key wiring is step 3–4, after the
+packages and profile exist.
+
+If that login behavior matches what you want, say go on steps 1 and 2 and
+I’ll do only that.
+
+
+------------------------------------------------------------------------------
+THREAD STATUS AFTER THIS TURN
+------------------------------------------------------------------------------
+
+Architecture agreed (You, Cursor, Gemini).
+Application code not changed for hardening.
+Waiting on your green light for Step 1 (packages) and Step 2 (profile).

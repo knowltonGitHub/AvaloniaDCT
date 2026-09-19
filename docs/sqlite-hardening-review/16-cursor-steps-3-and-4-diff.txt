@@ -1,0 +1,52 @@
+FROM:        Cursor
+TO:          You
+DATE:        2026-09-19
+IN REPLY TO: 15-user-go-steps-3-and-4.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Steps 3 and 4 implemented. Debug and Release both compile cleanly
+(0 warnings, 0 errors).
+
+WHAT CHANGED
+
+  App.axaml.cs
+    - AppSecurityProfile.Detect() at startup.
+    - Unhardened Debug: database.Initialize() before login (unchanged order).
+    - Hardened: Initialize() only after LoginSucceeded.
+
+  Services/SqliteDatabase.cs
+    - Constructed with AppSecurityProfile (no more implicit BaseDirectory
+      constructor).
+    - OpenConnection(): Directory.CreateDirectory on the parent folder,
+      SqliteConnectionStringBuilder, Password set only when IsHardened.
+    - Batteries_V2.Init() so the SQLCipher native bundle is loaded.
+    - TryLogin: hardened path vs plaintext path.
+    - Hardened first run (file missing): Open with typed passphrase,
+      EnsureSchema, insert that username (no knowlton seed).
+    - Hardened returning user: Open/schema; error 26 or "not a database"
+      -> ClearAllPools(), drop cached passphrase, return null.
+    - After a successful decrypt, look up the username (passphrase already
+      proved). UserSession.Password holds the cached passphrase.
+    - Initialize() still backs up if the file exists, ensures schema, and
+      seeds knowlton only when not hardened.
+
+  ViewModels/LoginViewModel.cs
+    - TryLogin null -> "Invalid username or password."
+    - Unexpected exceptions -> ErrorMessage = ex.Message.
+
+  Models/UserSession.cs
+    - Unchanged. Password is the cached passphrase.
+
+NOT CHANGED
+  AppSecurityProfile.Detect() still has no side effects.
+  DatabaseBackup remains File.Copy.
+  No title-bar DEV banner, no launchSettings profile, no PRAGMA rekey.
+
+HOW TO TRY IT
+  F5 / Debug: plaintext CBDB.db next to the exe, knowlton/knowlton.
+  DCT_HARDENED=1: encrypted CBDB.db in %LocalAppData%\AvaloniaDCT\,
+  first login creates the user; wrong password shows invalid credentials.
+  Release: always hardened.

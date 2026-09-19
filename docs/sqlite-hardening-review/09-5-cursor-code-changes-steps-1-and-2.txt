@@ -1,0 +1,132 @@
+FROM:        Cursor
+TO:          You
+DATE:        2026-09-19
+IN REPLY TO: 09-user-green-light-steps-1-and-2.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Code changes made since the SQLite hardening discussion began today.
+
+Scope: Steps 1 and 2 only. Login, SqliteDatabase, App.axaml.cs, backups,
+and UserSession were not modified.
+
+Build: Debug and Release both compiled cleanly after these changes.
+
+
+------------------------------------------------------------------------------
+SUMMARY
+------------------------------------------------------------------------------
+
+  MODIFIED  AvaloniaDCT.csproj
+            Package swap: vanilla SQLite -> SQLCipher stack
+
+  ADDED     Services/AppSecurityProfile.cs
+            Detect() path resolver and IsHardened flag
+
+  UNCHANGED App.axaml.cs
+            LoginViewModel.cs
+            Services/SqliteDatabase.cs
+            Services/DatabaseBackup.cs
+            Models/UserSession.cs
+
+The app still opens CBDB.db the old way (plaintext, next to the exe).
+AppSecurityProfile.Detect() exists but is not called yet.
+
+
+------------------------------------------------------------------------------
+1. AvaloniaDCT.csproj  (package swap)
+------------------------------------------------------------------------------
+
+REMOVED
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
+
+ADDED
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.0" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.11" />
+
+Current package ItemGroup (full):
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3">
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.0" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.11" />
+  </ItemGroup>
+
+
+------------------------------------------------------------------------------
+2. Services/AppSecurityProfile.cs  (new file, full contents)
+------------------------------------------------------------------------------
+
+namespace AvaloniaDCT.Services;
+
+public sealed class AppSecurityProfile
+{
+    public bool IsHardened { get; init; }
+    public string DatabasePath { get; init; } = "";
+
+    public static AppSecurityProfile Detect()
+    {
+        var hardened =
+#if DEBUG
+            string.Equals(
+                Environment.GetEnvironmentVariable("DCT_HARDENED"),
+                "1",
+                StringComparison.Ordinal);
+#else
+            true;
+#endif
+
+        var databasePath = hardened
+            ? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AvaloniaDCT",
+                "CBDB.db")
+            : Path.Combine(AppContext.BaseDirectory, "CBDB.db");
+
+        return new AppSecurityProfile
+        {
+            IsHardened = hardened,
+            DatabasePath = databasePath
+        };
+    }
+}
+
+
+Behavior of Detect():
+
+  Configuration     DCT_HARDENED    IsHardened    DatabasePath
+  --------------    ------------    ----------    ------------------------------------------
+  Debug             unset / other   false         {exe folder}\CBDB.db
+  Debug             1               true          %LocalAppData%\AvaloniaDCT\CBDB.db
+  Release           ignored         true          %LocalAppData%\AvaloniaDCT\CBDB.db
+
+
+------------------------------------------------------------------------------
+NOT CHANGED (intentionally, per step 1–2 stop)
+------------------------------------------------------------------------------
+
+- No SqliteConnectionStringBuilder.Password yet
+- Login does not map SQLITE_NOTADB (26)
+- UserSession does not cache a DB key
+- DatabaseBackup is still File.Copy (correct for later; unused for encryption)
+- Title bar does not say DEVELOPMENT - UNENCRYPTED
+
+
+------------------------------------------------------------------------------
+DOCS CREATED THE SAME DAY (not application code)
+------------------------------------------------------------------------------
+
+  DEV-VS-PRODUCTION-SECURITY.txt          (project root)
+  docs/sqlite-hardening-review/00 through 09
+  this file: 09-5-cursor-code-changes-steps-1-and-2.txt

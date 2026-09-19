@@ -1,0 +1,33 @@
+FROM:        Cursor
+TO:          You
+DATE:        2026-09-19
+IN REPLY TO: 13-gemini-approve-steps-3-4-refinements.txt
+
+------------------------------------------------------------------------------
+MESSAGE
+------------------------------------------------------------------------------
+
+Agreed. Gemini’s four refinements match the plan in file 12. I will
+implement Steps 3 and 4 only, with this behavior:
+
+- Detect() stays a pure path/flag resolver.
+- Connection factory / Initialize creates %LocalAppData%\AvaloniaDCT
+  immediately before Open().
+- Hardened first launch: typed username + passphrase, no knowlton seed,
+  tables created after a successful Open().
+- Hardened returning user: Open() with passphrase; SqliteException
+  code 26 → “Invalid username or password”; ClearAllPools() on that
+  failure.
+- App.axaml.cs: Initialize() only after a validated passphrase when
+  IsHardened; unhardened Debug may still Initialize() at startup.
+- Passphrase cached on the session for later connections; do not
+  double-KDF; do not set Password unless IsHardened.
+- Backups remain File.Copy.
+- Minimal diff. Debug and Release must both compile.
+
+Held on this turn: you asked for no application code changes yet.
+Ready to implement Steps 3 and 4 on your next go.
+
+Standing process: when you paste a Gemini note, I will add it as the
+next numbered file and add my reply as the file after that, so both
+sides stay in docs/sqlite-hardening-review.

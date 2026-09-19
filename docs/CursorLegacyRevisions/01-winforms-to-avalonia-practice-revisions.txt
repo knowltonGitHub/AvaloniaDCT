@@ -1,0 +1,401 @@
+FROM:        Cursor
+TO:          You
+DATE:        2026-09-19
+SUBJECT:     WinForms DCT -> AvaloniaDCT port: practice revisions to learn from
+
+------------------------------------------------------------------------------
+PURPOSE
+------------------------------------------------------------------------------
+
+This is a study guide, not a changelog. It lists where the Avalonia port
+kept your product behavior but changed how the code is structured, so you
+can reuse the same moves on later features.
+
+WinForms source of truth:
+  LEGACY DCT/DCT BACKUP BEFORE NEW MAUI APP OR COPILOT AGENT/DCT/
+
+Avalonia destination:
+  Models/, ViewModels/, Views/, Services/, App.axaml.cs, Program.cs
+
+
+------------------------------------------------------------------------------
+PORT STRATEGY (THE BIG MOVE)
+------------------------------------------------------------------------------
+
+WinForms DCT is a "god object" desktop app:
+
+  NVM          holds UI constants, in-memory clipboard rows, SQL, email,
+               UDP helpers, mouse-hover bitmap swaps, and a live SQLite
+               connection
+  FormMain     mixes layout math, click handlers, edit-mode flags, backups,
+               clipboard, Chrome launch, and experimental NetMQ
+  Forms        talk to NVM directly (UserLogin, Preferences, About)
+
+AvaloniaDCT splits that by responsibility (MVVM):
+
+  Models       data only (TagItemValue, UserSession, UserPreferences)
+  Services     I/O and reusable logic (SqliteDatabase, ClipboardStore,
+               DatabaseBackup, dialogs, clipboard)
+  ViewModels   user actions and screen state (commands, selected tag/item)
+  Views        XAML layout + a thin code-behind for window events
+
+Rule used during the port:
+  Keep the user's workflow (login, tags/items/values, backup filenames,
+  persist on close). Replace WinForms mechanics with the .NET / Avalonia
+  equivalent. Do not copy Form event-handler style into ViewModels.
+
+
+------------------------------------------------------------------------------
+FILE MAP
+------------------------------------------------------------------------------
+
+  WinForms                              AvaloniaDCT
+  -----------------------------------   ------------------------------------
+  Program.cs                            Program.cs + App.axaml.cs
+  Helper.CreateCopyOfCurrentDB          Services/DatabaseBackup.cs
+  NVM (SQL + connection)                Services/SqliteDatabase.cs
+  NVM (TIV list + tag/item CRUD)        Services/ClipboardStore.cs
+  NVM.UserName / Password / UserID      Models/UserSession.cs
+  NVM preferences fields/SQL            Models/UserPreferences.cs
+                                        + SqliteDatabase.Load/SavePreferences
+  Classes/TagItemValue.cs               Models/TagItemValue.cs
+  Forms/UserLogin.cs                    ViewModels/LoginViewModel.cs
+                                        + Views/LoginWindow.axaml
+  Forms/MainForm.cs                     ViewModels/MainViewModel.cs
+                                        + Views/MainWindow.axaml
+  Forms/Preferences.cs                  ViewModels/PreferencesViewModel.cs
+                                        + Views/PreferencesWindow.axaml
+  Forms/AboutForm.cs                    Views/AboutWindow.axaml
+  MessageBox / inline edit panel        Services/DialogService.cs
+                                        + Prompt/Message windows
+  Clipboard.SetText                     Services/IAppClipboard.cs
+                                        + AvaloniaClipboardService.cs
+  ListBoxExtensions.NotNullAndNotEmpty  ViewModel CanExecute + null checks
+  CustomEvents / ISupportsEvents        not ported (see "left behind")
+  NVM.Email / GetGMailToAddress         not ported yet
+  UDPSocket / NetMQ experiments         not ported yet
+  Designer pixel layout + hover PNGs    XAML Grid/DockPanel + Fluent theme
+
+
+------------------------------------------------------------------------------
+1. LANGUAGE AND PROJECT SHAPE
+------------------------------------------------------------------------------
+
+WinForms
+  - .NET Framework, System.Windows.Forms
+  - namespace + braces around every file
+  - public fields (Tag, Item, Value, OwnerID)
+  - EMPTYSTRING constant instead of ""
+  - Designer.cs generated UI
+
+Avalonia
+  - SDK-style project, net10.0, implicit usings, nullable enable
+  - file-scoped namespaces:  namespace AvaloniaDCT.Services;
+  - properties instead of public fields
+  - C# records where the type is an immutable snapshot
+      Models/UserSession.cs  ->  record UserSession(int UserId, string UserName, string Password)
+  - XAML views with compiled bindings (x:DataType)
+
+Why: less boilerplate, nulls are compiler-visible, UI is data-bound instead
+of poked from click handlers.
+
+
+------------------------------------------------------------------------------
+2. DATETIME STAMP (THE HELPER YOU NOTICED)
+------------------------------------------------------------------------------
+
+WinForms  Helper.CreateCopyOfCurrentDB
+
+  DateTime dt = new DateTime();
+  dt = DateTime.Now;
+  string Year = dt.Year.ToString();
+  string Month = CreateDoubleDigit(dt.Month);
+  ... Hour, Minute, Second ...
+  "CBDB" + Year + Month + Day + Hour + Minute + Second + "_" + message + "_" + rowcount + ".db"
+
+Avalonia  DatabaseBackup.CreateCopy
+
+  var stamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+  var fileName = $"CBDB{stamp}_{message}_{rowCount}.db";
+
+Same filename contract. Format string does the zero-padding that
+CreateDoubleDigit did by hand.
+
+Also tightened around the stamp:
+  - copy the actual databasePath, not a hardcoded "CBDB.db" in the cwd
+  - write the backup next to that file (exe folder or LocalAppData)
+  - File.Copy(..., overwrite: false) so a same-second name does not clobber
+  - catch IOException so a backup failure never blocks login or save
+
+
+------------------------------------------------------------------------------
+3. NVM GOD OBJECT -> SMALL TYPES
+------------------------------------------------------------------------------
+
+WinForms NVM mixed:
+  layout constants, mouse borders, BinaryFormatter, SMTP, IP-to-long,
+  SQL string building, a List<TagItemValue>, and one SQLiteConnection
+  field that every method Open()/Close()s.
+
+Avalonia split:
+
+  ClipboardStore     in-memory tag/item/value list only
+  SqliteDatabase     connections, schema, parameterized SQL
+  DatabaseBackup     File.Copy sidecar
+  UserSession        who is logged in
+  UserPreferences    SMTP/LAN settings as a DTO
+  MainViewModel      what the user is doing on the main screen
+
+Why: a class that both draws buttons and runs SQL cannot be tested or
+reused. Each new type has one reason to change.
+
+
+------------------------------------------------------------------------------
+4. SQL: STRING CONCAT -> PARAMETERS
+------------------------------------------------------------------------------
+
+WinForms (NVM.GetUserID, FillTagItemValuesFromDatabase, Overwrite...,
+SaveEmailPreferencesToDatabase, GetSingleRowValue, ResetTable):
+
+  "select id from user where UserName = '" + UserName + "' and Password = '" + Password + "'"
+  "where userid = " + UserID
+  DoubleUpQuotes(fromAddress)  then glue into INSERT/UPDATE
+  "delete from " + tablename
+  "select " + columnName + " from " + tableName + " " + where
+
+Avalonia (SqliteDatabase):
+
+  command.CommandText = "SELECT id FROM user WHERE UserName = $user AND Password = $password";
+  command.Parameters.AddWithValue("$user", userName);
+  command.Parameters.AddWithValue("$password", password);
+
+  LoadTagItemValues / OverwriteTagItemValues / LoadPreferences / SavePreferences
+  all use $userId, $tag, $item, $value, etc.
+
+Why:
+  - quotes in a clipboard value no longer break SQL
+  - DoubleUpQuotes is unnecessary once values are parameters
+  - table/column names are never taken from UI strings
+  - schema is CREATE TABLE IF NOT EXISTS in one EnsureSchema() call,
+    not three methods that sometimes omit IF NOT EXISTS
+
+Connection lifetime:
+  WinForms kept m_dbConnection on NVM and Open/Close around each call.
+  Avalonia uses `using var connection = OpenConnection();` so dispose
+  always runs, including on exception.
+
+
+------------------------------------------------------------------------------
+5. IN-MEMORY LIST: FOREACH FLAGS -> LINQ / RemoveAll
+------------------------------------------------------------------------------
+
+WinForms NVM walked TIV with nested ifs and a "removeThis" sentinel:
+
+  TagItemValue removeThis = new TagItemValue();
+  foreach (TagItemValue tempTIV in TIV) { if (...) removeThis = tempTIV; }
+  TIV.Remove(removeThis);
+
+That pattern had real bugs the port fixed while keeping the feature:
+
+  DeleteExistingTagFromInMemory
+    only removed the tag if tagcount == 1. A tag with two items stayed.
+    ClipboardStore.DeleteTag uses RemoveAll(item => item.Tag == tag).
+
+  UpdateExistingInformationItemInMemoryList
+    removed the row instead of changing its value.
+    ClipboardStore.UpdateValue finds the row and sets Value.
+
+  DeleteInformationItemFromInMemory
+    could Remove a default TagItemValue if nothing matched.
+    ClipboardStore.DeleteItem uses RemoveAll on tag+item, then keeps a
+    placeholder row so the tag still exists.
+
+  GetAllTags returned a WinForms ListBox
+    ClipboardStore.GetTags returns IReadOnlyList<string>.
+    The store must not know about ListBox / ListBoxItems.
+
+  TagAlreadyExists / ItemAlreadyExists never broke out of the loop
+    ClipboardStore.TagExists / ItemExists use .Any(...) and return immediately.
+
+  ItemValueIsAWebURL compiled the regex on every call
+    ClipboardStore keeps a static compiled Regex and uses IsMatch.
+
+
+------------------------------------------------------------------------------
+6. UI: CLICK HANDLERS -> COMMANDS + BINDINGS
+------------------------------------------------------------------------------
+
+WinForms FormMain
+  buttonAddNewTag_Click shows an overlay panel, sets EditItemState,
+  EnableControl(...) on many widgets, pixel-positions the panel.
+  listBoxTags_SelectedIndexChanged fills the items list by hand.
+  FormMain_SizeChanged recalculates Left/Top/Height.
+
+Avalonia MainViewModel
+  [RelayCommand] AddTag / RenameTag / DeleteTag / AddItem / ...
+  CanExecute = HasSelectedTag / HasSelectedItem so buttons disable
+  themselves. No EnableControl lists.
+
+  Views/MainWindow.axaml
+    ListBox ItemsSource="{Binding Tags}" SelectedItem="{Binding SelectedTag}"
+    Grid ColumnDefinitions="* * *" instead of AdjustMainFormControls()
+
+  Double-click stays in thin code-behind (TagsList_OnDoubleTapped) and
+  only calls the same command the Rename button uses.
+
+Why: one code path for "rename tag" whether the user clicked the button
+or double-clicked the list. Layout is declarative. Command CanExecute
+replaces the WinForms enabled-flag maze (and the boolean bugs like
+`existingtag & newtag` which is AND, so "is tag" was almost never true).
+
+
+------------------------------------------------------------------------------
+7. DIALOGS AND CLIPBOARD BEHIND INTERFACES
+------------------------------------------------------------------------------
+
+WinForms
+  MessageBox.Show(this, ...)
+  Clipboard.SetText(...)
+  new Preferences() { NVMCont = _nvm }; pForm.ShowDialog();
+  ProcessStartInfo FileName = ProgramFiles(x86)\Google\Chrome\...\chrome.exe
+
+Avalonia
+  IDialogService  ShowMessageAsync / ConfirmAsync / PromptAsync /
+                  ShowPreferencesAsync / ShowAboutAsync
+  IAppClipboard   SetTextAsync
+  Process.Start with UseShellExecute = true and ClipboardStore.ToBrowsableUrl
+    so the OS default browser opens, not a hardcoded Chrome path.
+    https:// is prefixed when the stored value has no scheme.
+
+Why: ViewModels can be tested without a real window. Chrome-only launch
+fails on machines without that path; the shell verb does not.
+
+
+------------------------------------------------------------------------------
+8. LOGIN FLOW
+------------------------------------------------------------------------------
+
+WinForms
+  UserLogin constructor called ExecuteLogin() immediately, then FormMain_Load
+  did `UserLogin ul = new UserLogin(); // ul.ShowDialog(); _nvm = ul.NVMCont;`
+  so the dialog was skipped and designer defaults ("knowlton") were used.
+  GetUserID always returned a string, including empty on failure.
+  No error message on bad credentials.
+
+Avalonia
+  Login is a real first window (App.axaml.cs).
+  LoginViewModel.LoginCommand calls database.TryLogin.
+  null -> "Invalid username or password."
+  unexpected exceptions -> ErrorMessage = ex.Message
+  Enter key bound to LoginCommand.
+  PasswordChar="*" on the password box.
+  Success raises LoginSucceeded; App then creates MainWindow.
+
+UserSession carries UserId as int, not string. WinForms UserIDIsValid
+was a four-level nested string/int check; the port uses userId > 0 at
+the query site.
+
+
+------------------------------------------------------------------------------
+9. PREFERENCES
+------------------------------------------------------------------------------
+
+WinForms Preferences_Load called GetUserID eight times and GetSingleRowValue
+with a concatenated where clause per field. Save split email and LAN into
+two methods that could INSERT one subset and UPDATE the other.
+
+Avalonia
+  one LoadPreferences(userId) -> UserPreferences
+  one SavePreferences(userId, preferences) INSERT or UPDATE of all columns
+  ViewModel copies DTO fields to [ObservableProperty]s and back on Save
+
+
+------------------------------------------------------------------------------
+10. STARTUP, SHUTDOWN, AND BACKUP MOMENTS
+------------------------------------------------------------------------------
+
+Same three backup labels as WinForms, kept on purpose:
+
+  BEFORE_USE          now SqliteDatabase.Initialize() if the file exists
+                      (unhardened: before login; hardened: after login)
+  AFTER_MEMORY_FILL   MainViewModel constructor after LoadTagItemValues
+  AUTO_BACKUP         OverwriteTagItemValues before delete+insert
+
+WinForms Program.cs backed up before the UI even existed, always against
+cwd\CBDB.db. Avalonia backs up the profile's DatabasePath so Debug and
+hardened AppData locations both work.
+
+Persist on close:
+  WinForms FormMain_FormClosed_1 -> OverwriteTagItemsValueTableInDatabase
+  Avalonia MainWindow.Closing -> MainViewModel.Persist()
+
+
+------------------------------------------------------------------------------
+11. XAML AND THEME INSTEAD OF OWNER-DRAW
+------------------------------------------------------------------------------
+
+Left behind (WinForms-only presentation):
+  GetMouseOverBitmap / ChangeButtonImageResource / ToggleMouseBorder
+  Properties.Resources.*_hover PNGs
+  panelEnterOrEditText overlay and EditItemState enum
+  manual groupBox Left/Top math
+  ISupportsEvents on every form
+
+Replaced with:
+  Fluent theme (App.axaml)
+  named buttons (Add / Rename / Delete / Copy / Open URL)
+  PromptWindow for add/rename/edit
+  MessageWindow for alerts and confirmations
+
+
+------------------------------------------------------------------------------
+12. WHAT WAS INTENTIONALLY NOT PORTED
+------------------------------------------------------------------------------
+
+These existed on NVM / FormMain and have no Avalonia counterpart yet.
+That is a scope choice, not a claim they are obsolete.
+
+  SMTP send           NVM.Email, GetGMailToAddress
+  emails table        NVM.GetEmailAddresses / SaveEmailToDatabase
+  UDP / NetMQ         UDPSocket, FormMain.trymq / StartListener
+  BinaryFormatter     NVM.ObjectToByteArray  (do not bring this back;
+                      BinaryFormatter is obsolete and unsafe)
+  CustomEvents bus    mostly unused / Debug.WriteLine in the WinForms app
+  CreateSQLINClause   dynamic IN-lists via string concat
+  TruncateAllTables / ResetTable  unbounded DELETE by table name
+  hardcoded Chrome    replaced by shell-execute URL open
+  pixel layout constants on NVM  (STANDARD_CI_LISTBOX_WIDTH, etc.)
+
+SQLCipher / AppSecurityProfile is a later hardening pass, documented under
+docs/sqlite-hardening-review/. It is not a WinForms-to-Avalonia rewrite of
+an old feature; the old app was plaintext System.Data.SQLite next to the exe.
+
+
+------------------------------------------------------------------------------
+LEARNING CHEAT SHEET
+------------------------------------------------------------------------------
+
+  If WinForms did this                         Prefer this in Avalonia/.NET
+  ----------------------------------------     --------------------------------
+  Year + CreateDoubleDigit(Month) + ...        DateTime.ToString("yyyyMMddHHmmss")
+  "CBDB.db" in the current directory           Path from AppSecurityProfile / BaseDirectory
+  Open connection field, Close later           using var connection = ...
+  sql = "... '" + userInput + "'"              Parameters.AddWithValue("$name", value)
+  DoubleUpQuotes                               delete it; use parameters
+  foreach + sentinel object to Remove          LINQ FirstOrDefault / RemoveAll / Any
+  method returns ListBox                       return IReadOnlyList<string> (or similar)
+  compile Regex inside the method              static readonly Regex, Compiled
+  MessageBox.Show / Clipboard.SetText          IDialogService / IAppClipboard
+  button.Enabled = ... in five handlers        [RelayCommand(CanExecute = ...)]
+  overlay panel + EditItemState enum           one Prompt dialog + commands
+  Form_Load new SomeForm(); ShowDialog()       App owns window lifetime
+  UserID as string                             int (or a record)
+  public fields                                properties / records
+  god-object NVM                               Model / Store / Database / ViewModel
+  ProcessStartInfo Chrome.exe path             UseShellExecute + default browser
+  BinaryFormatter                              do not port
+  catch (Exception) { Debug.WriteLine }        surface the error to the user when login/save depends on it
+  backup File.Copy with no try                 try/catch IOException; never block the app
+
+Keep product nouns (CBDB, BEFORE_USE, AUTO_BACKUP, knowlton seed in Debug,
+tag/item/thevalue schema). Change the mechanics around them.

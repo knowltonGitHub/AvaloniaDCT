@@ -1,10 +1,15 @@
+<!--
+  Application-wide XAML (not a window). This is Avalonia's equivalent of App.xaml
+  in WPF: theme, global styles. Code-behind is App.axaml.cs.
+-->
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="AvaloniaDCT.App"
              RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             <!-- Default = follow Windows light/dark. Use Light or Dark to force one. -->
 
     <Application.Styles>
+        <!-- FluentTheme is Avalonia's built-in Fluent look (buttons, text boxes, lists). -->
         <FluentTheme />
     </Application.Styles>
 </Application>

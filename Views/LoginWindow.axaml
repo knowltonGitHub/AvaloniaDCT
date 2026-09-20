@@ -1,3 +1,4 @@
+<!-- Login window. x:DataType enables compiled bindings to LoginViewModel (typos fail at build). -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:AvaloniaDCT.ViewModels"
@@ -9,6 +10,7 @@
         SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
         CanResize="False">
+    <!-- Enter in any field runs LoginCommand (generated from LoginViewModel.Login). -->
     <Window.KeyBindings>
         <KeyBinding Gesture="Enter" Command="{Binding LoginCommand}" />
     </Window.KeyBindings>
@@ -26,6 +28,7 @@
                  PlaceholderText="User name" />
 
         <TextBlock Text="Password" />
+        <!-- PasswordChar masks the secret; the bound text is still the real password. -->
         <TextBox Text="{Binding Password}"
                  PasswordChar="*"
                  PlaceholderText="Password" />

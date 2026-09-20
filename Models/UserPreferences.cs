@@ -1,5 +1,8 @@
 namespace AvaloniaDCT.Models;
 
+// SMTP + LAN settings stored in the preferences table.
+// Email/UDP send is not wired in Avalonia yet; the form still saves the same fields
+// the WinForms app used so a later port has somewhere to read them.
 public sealed class UserPreferences
 {
     public string FromAddress { get; set; } = "";

@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace AvaloniaDCT.ViewModels;
 
+// OK message or Cancel/Delete confirm. AcceptText is "OK" or "Delete".
 public partial class MessageViewModel : ObservableObject
 {
     public string Title { get; }

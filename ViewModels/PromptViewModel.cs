@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace AvaloniaDCT.ViewModels;
 
+// Shared dialog for Add Tag, Rename Tag, Add Item, Rename Item, Edit Value.
 public partial class PromptViewModel : ObservableObject
 {
     [ObservableProperty]
@@ -29,6 +30,7 @@ public partial class PromptViewModel : ObservableObject
     [ObservableProperty]
     private bool _valueIsMultiline;
 
+    // true = Save, false = Cancel. DialogService closes the window.
     public event Action<bool>? CloseRequested;
 
     public PromptViewModel(PromptRequest request)

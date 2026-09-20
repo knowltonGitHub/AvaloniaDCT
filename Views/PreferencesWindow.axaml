@@ -1,3 +1,4 @@
+<!-- Preferences: two tabs bound to PreferencesViewModel. Email send is not hooked up yet. -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:AvaloniaDCT.ViewModels"

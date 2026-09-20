@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace AvaloniaDCT.ViewModels;
 
+// Loads/saves the preferences table. Fields bind two-way to the Preferences window TextBoxes.
 public partial class PreferencesViewModel : ObservableObject
 {
     private readonly SqliteDatabase _database;

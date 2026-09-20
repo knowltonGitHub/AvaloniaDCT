@@ -5,11 +5,12 @@ using Avalonia.Media;
 
 namespace AvaloniaDCT.Views;
 
+// Code-behind for LoginWindow.axaml. Keep this thin: layout/chrome only, no login logic.
 public partial class LoginWindow : Window
 {
     public LoginWindow()
     {
-        InitializeComponent();
+        InitializeComponent(); // Load the XAML and wire named controls.
         PropertyChanged += OnWindowPropertyChanged;
         Opened += (_, _) => FitWidthToTitle(recenter: true);
     }
@@ -22,6 +23,8 @@ public partial class LoginWindow : Window
         }
     }
 
+    // SizeToContent measures client content, not the Windows caption. Measure the title string
+    // and widen so DEVELOPMENT / DEBUG HARDENED / RELEASE labels are fully visible.
     private void FitWidthToTitle(bool recenter)
     {
         var title = Title;
@@ -38,9 +41,7 @@ public partial class LoginWindow : Window
             12,
             Brushes.Black);
 
-        // Caption icon + min/max/close buttons. SizeToContent only measures
-        // client content, not the OS title bar.
-        const double captionChromeWidth = 240;
+        const double captionChromeWidth = 240; // Icon + min/max/close on Windows.
         var needed = Math.Ceiling(formatted.Width + captionChromeWidth);
         if (needed <= Width)
         {
@@ -57,7 +58,7 @@ public partial class LoginWindow : Window
             }
 
             var area = screen.WorkingArea;
-            var scaling = DesktopScaling;
+            var scaling = DesktopScaling; // DIP vs pixel on high-DPI displays.
             Position = new PixelPoint(
                 area.X + (int)((area.Width - Width * scaling) / 2),
                 area.Y + (int)((area.Height - Height * scaling) / 2));

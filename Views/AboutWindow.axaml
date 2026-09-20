@@ -1,3 +1,4 @@
+<!-- Static about box (no ViewModel). Click handler lives in AboutWindow.axaml.cs. -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="AvaloniaDCT.Views.AboutWindow"

@@ -3,6 +3,7 @@ using Avalonia.Input.Platform;
 
 namespace AvaloniaDCT.Services;
 
+// Writes text to the Windows clipboard using the Avalonia clipboard attached to a Window.
 public sealed class AvaloniaClipboardService : IAppClipboard
 {
     private readonly Window _window;
@@ -17,7 +18,7 @@ public sealed class AvaloniaClipboardService : IAppClipboard
         var clipboard = _window.Clipboard;
         if (clipboard is null)
         {
-            return;
+            return; // Headless / not yet shown — nothing to copy to.
         }
 
         await clipboard.SetTextAsync(text);

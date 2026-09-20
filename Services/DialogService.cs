@@ -5,9 +5,11 @@ using AvaloniaDCT.Views;
 
 namespace AvaloniaDCT.Services;
 
+// Creates a Window, sets DataContext to a ViewModel, shows it modally with ShowDialog.
+// CloseRequested from the VM is how Save/Cancel actually close the window (MVVM: VM does not Close() itself).
 public sealed class DialogService : IDialogService
 {
-    private readonly Window _owner;
+    private readonly Window _owner; // MainWindow — dialogs center on it and block it.
 
     public DialogService(Window owner)
     {
@@ -49,7 +51,7 @@ public sealed class DialogService : IDialogService
         await window.ShowDialog(_owner);
         if (!confirmed)
         {
-            return null;
+            return null; // Cancel or close — caller treats as "do nothing"
         }
 
         return new PromptResult
@@ -69,7 +71,7 @@ public sealed class DialogService : IDialogService
 
     public async Task ShowAboutAsync()
     {
-        var window = new AboutWindow();
+        var window = new AboutWindow(); // Static XAML, no ViewModel
         await window.ShowDialog(_owner);
     }
 }

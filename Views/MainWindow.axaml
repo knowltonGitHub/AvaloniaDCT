@@ -1,3 +1,4 @@
+<!-- Main clipboard UI: three columns (tags / items / value) plus a menu. -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:AvaloniaDCT.ViewModels"
@@ -10,6 +11,7 @@
         MinHeight="420"
         WindowStartupLocation="CenterScreen">
     <DockPanel>
+        <!-- Underscore in Header = Alt mnemonic (Alt+F, Alt+H). -->
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
                 <MenuItem Header="_Preferences" Command="{Binding OpenPreferencesCommand}" />
@@ -21,6 +23,7 @@
             </MenuItem>
         </Menu>
 
+        <!-- Three equal columns. * * * means share leftover width. -->
         <Grid Margin="12" ColumnDefinitions="* * *" ColumnSpacing="12">
             <Border BorderBrush="#66808080"
                     BorderThickness="1"
@@ -39,6 +42,7 @@
                         <Button Content="Rename" Command="{Binding RenameTagCommand}" />
                         <Button Content="Delete" Command="{Binding DeleteTagCommand}" />
                     </StackPanel>
+                    <!-- SelectedItem two-way: clicking a tag sets MainViewModel.SelectedTag. -->
                     <ListBox ItemsSource="{Binding Tags}"
                              SelectedItem="{Binding SelectedTag}"
                              DoubleTapped="TagsList_OnDoubleTapped" />

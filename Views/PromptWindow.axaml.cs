@@ -14,12 +14,13 @@ public partial class PromptWindow : Window
     private void OnOpened(object? sender, EventArgs e)
     {
         var box = NameBox.IsVisible ? NameBox : ValueBox;
+        // Post to Input so focus/select run after Avalonia finishes laying out the dialog.
         Dispatcher.UIThread.Post(() =>
         {
             box.Focus();
             if (!string.IsNullOrEmpty(box.Text))
             {
-                box.SelectAll();
+                box.SelectAll(); // Rename: next keystroke replaces the old name.
             }
         }, DispatcherPriority.Input);
     }

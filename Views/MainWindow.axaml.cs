@@ -4,6 +4,7 @@ using AvaloniaDCT.ViewModels;
 
 namespace AvaloniaDCT.Views;
 
+// Window chrome + a few events that XAML cannot bind as Commands (Closing, DoubleTapped).
 public partial class MainWindow : Window
 {
     public MainWindow()
@@ -16,7 +17,7 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainViewModel viewModel)
         {
-            viewModel.Persist();
+            viewModel.Persist(); // Always save clipboard rows when the window goes away.
         }
     }
 
@@ -24,7 +25,7 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainViewModel viewModel)
         {
-            viewModel.RenameTagCommand.Execute(null);
+            viewModel.RenameTagCommand.Execute(null); // Same command as the Rename button.
         }
     }
 

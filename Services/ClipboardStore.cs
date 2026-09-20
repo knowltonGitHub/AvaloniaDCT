@@ -3,8 +3,10 @@ using AvaloniaDCT.Models;
 
 namespace AvaloniaDCT.Services;
 
+// In-memory clipboard (the TIV list from WinForms NVM). No SQL, no ListBox — UI binds to strings.
 public sealed class ClipboardStore
 {
+    // Compiled once. Same pattern as the WinForms app (character-class quirk on .com/.in/.org kept).
     private static readonly Regex WebUrlRegex = new(
         @"^(http|http(s)?://)?([\w-]+\.)+[\w-]+[.com|.in|.org]+(\[\?%&=]*)?",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -57,6 +59,7 @@ public sealed class ClipboardStore
             return;
         }
 
+        // Placeholder row so the tag appears before any item is added.
         _items.Add(new TagItemValue
         {
             Tag = tag,
@@ -122,6 +125,7 @@ public sealed class ClipboardStore
         _items.RemoveAll(row => row.Tag == tag && row.Item == item);
         if (!_items.Any(row => row.Tag == tag))
         {
+            // Keep an empty tag row so the tag does not vanish from the left list.
             _items.Add(new TagItemValue { Tag = tag, Item = "", Value = "", OwnerId = ownerId });
         }
     }
@@ -145,6 +149,6 @@ public sealed class ClipboardStore
             return trimmed;
         }
 
-        return "https://" + trimmed;
+        return "https://" + trimmed; // Let the OS default browser open it.
     }
 }

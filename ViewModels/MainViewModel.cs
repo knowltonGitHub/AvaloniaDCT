@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace AvaloniaDCT.ViewModels;
 
+// Main clipboard screen. Commands bind to buttons/menus. ObservableCollections bind to ListBoxes.
 public partial class MainViewModel : ObservableObject
 {
     private readonly SqliteDatabase _database;
@@ -14,7 +15,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ClipboardStore _store;
     private readonly IDialogService _dialogs;
     private readonly IAppClipboard _clipboard;
-    private bool _suppressClipboardCopy;
+    private bool _suppressClipboardCopy; // Avoid copying while we rebuild the Items list.
 
     [ObservableProperty]
     private string _windowTitle = "Desktop Clipboard Toolkit";
@@ -29,8 +30,9 @@ public partial class MainViewModel : ObservableObject
     private string _selectedValue = "";
 
     [ObservableProperty]
-    private bool _isWebUrl;
+    private bool _isWebUrl; // Enables the Open URL button.
 
+    // ObservableCollection notifies the ListBox when we Add/Clear.
     public ObservableCollection<string> Tags { get; } = [];
     public ObservableCollection<string> Items { get; } = [];
 
@@ -54,6 +56,7 @@ public partial class MainViewModel : ObservableObject
         RefreshTags();
     }
 
+    // Called from MainWindow.Closing so one close path always writes SQLite.
     public void Persist()
     {
         _database.OverwriteTagItemValues(_user.UserId, _store.Items);
@@ -74,7 +77,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void Exit()
     {
-        ExitRequested?.Invoke();
+        ExitRequested?.Invoke(); // App.axaml.cs closes MainWindow (which persists).
     }
 
     [RelayCommand]
@@ -104,6 +107,7 @@ public partial class MainViewModel : ObservableObject
         SelectedTag = name;
     }
 
+    // CanExecute disables the Rename button until a tag is selected.
     [RelayCommand(CanExecute = nameof(HasSelectedTag))]
     private async Task RenameTag()
     {
@@ -304,7 +308,7 @@ public partial class MainViewModel : ObservableObject
             Process.Start(new ProcessStartInfo
             {
                 FileName = ClipboardStore.ToBrowsableUrl(SelectedValue),
-                UseShellExecute = true
+                UseShellExecute = true // Default browser, not a hardcoded Chrome path.
             });
         }
         catch (Exception ex)
@@ -313,6 +317,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    // Toolkit hook: runs whenever SelectedTag changes (list click).
     partial void OnSelectedTagChanged(string? value)
     {
         RefreshItems();
@@ -377,7 +382,7 @@ public partial class MainViewModel : ObservableObject
 
         if (copyToClipboard && !string.IsNullOrEmpty(SelectedValue))
         {
-            _ = CopySelectedAsync();
+            _ = CopySelectedAsync(); // Fire-and-forget: selecting an item copies it (the toolkit moment).
         }
     }
 

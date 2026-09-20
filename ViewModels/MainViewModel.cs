@@ -34,6 +34,7 @@ public partial class MainViewModel : ObservableObject // partial for generated p
 
     public ObservableCollection<string> Tags { get; } = []; // Left ListBox ItemsSource; notifies on Add/Clear
     public ObservableCollection<string> Items { get; } = []; // Middle ListBox ItemsSource
+    public ChatViewModel Chat { get; } // Chat tab; same window, separate TabItem
 
     public event Action? ExitRequested; // File > Exit; App.axaml.cs closes MainWindow
 
@@ -52,6 +53,7 @@ public partial class MainViewModel : ObservableObject // partial for generated p
         _store.Load(database.LoadTagItemValues(user.UserId)); // SQLite → memory
         DatabaseBackup.CreateCopy(database.DatabasePath, _store.Items.Count, "AFTER_MEMORY_FILL"); // Sidecar after load
         WindowTitle = $"Desktop Clipboard Toolkit - {user.UserName} - {profile.TitleMode}"; // User + DEVELOPMENT/HARDENED/RELEASE
+        Chat = new ChatViewModel(user, dialogs); // LAN group chat on the Chat tab
         RefreshTags(); // Fill the left list
     } // end constructor
 
@@ -59,6 +61,8 @@ public partial class MainViewModel : ObservableObject // partial for generated p
     {
         _database.OverwriteTagItemValues(_user.UserId, _store.Items); // Replace this user's clipboard rows
     } // end Persist
+
+    public Task ShutdownChatAsync() => Chat.ShutdownAsync(); // Drop TCP listen/join when the window closes
 
     [RelayCommand] // Becomes OpenPreferencesCommand
     private async Task OpenPreferences() // File > Preferences

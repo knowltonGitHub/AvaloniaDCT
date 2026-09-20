@@ -125,8 +125,7 @@ public sealed class SqliteDatabase
         using var command = connection.CreateCommand(); // One SELECT
         command.CommandText =
             """
-            SELECT FromAddress, Host, Port, UserName, Password, -- Email SMTP fields
-                   SourceIP, SourcePort, DestinationIP, DestinationPort -- LAN fields
+            SELECT FromAddress, Host, Port, UserName, Password -- Email SMTP fields
             FROM preferences -- One row per user (convention, not a UNIQUE constraint)
             WHERE UserID = $userId -- Logged-in user
             """;
@@ -140,10 +139,6 @@ public sealed class SqliteDatabase
             preferences.Port = ReadString(reader, 2); // SMTP port
             preferences.UserName = ReadString(reader, 3); // SMTP user
             preferences.Password = ReadString(reader, 4); // SMTP password
-            preferences.SourceIp = ReadString(reader, 5); // LAN source IP
-            preferences.SourcePort = ReadString(reader, 6); // LAN source port
-            preferences.DestinationIp = ReadString(reader, 7); // LAN dest IP
-            preferences.DestinationPort = ReadString(reader, 8); // LAN dest port
         } // end if row
 
         return preferences; // Empty strings if no row
@@ -162,16 +157,12 @@ public sealed class SqliteDatabase
         {
             command.CommandText =
                 """
-                UPDATE preferences SET -- Overwrite every field
+                UPDATE preferences SET -- Overwrite SMTP fields (LAN columns if present stay unused)
                     FromAddress = $fromAddress, -- SMTP From
                     Host = $host, -- SMTP host
                     Port = $port, -- SMTP port
                     UserName = $userName, -- SMTP user
-                    Password = $password, -- SMTP password
-                    SourceIP = $sourceIp, -- LAN source IP
-                    SourcePort = $sourcePort, -- LAN source port
-                    DestinationIP = $destinationIp, -- LAN dest IP
-                    DestinationPort = $destinationPort -- LAN dest port
+                    Password = $password -- SMTP password
                 WHERE UserID = $userId -- This user only
                 """;
         } // end if exists
@@ -180,11 +171,9 @@ public sealed class SqliteDatabase
             command.CommandText =
                 """
                 INSERT INTO preferences ( -- New row
-                    UserID, FromAddress, Host, Port, UserName, Password, -- Identity + SMTP
-                    SourceIP, SourcePort, DestinationIP, DestinationPort) -- LAN
+                    UserID, FromAddress, Host, Port, UserName, Password) -- Identity + SMTP
                 VALUES (
-                    $userId, $fromAddress, $host, $port, $userName, $password, -- Bound below
-                    $sourceIp, $sourcePort, $destinationIp, $destinationPort)
+                    $userId, $fromAddress, $host, $port, $userName, $password)
                 """;
         } // end else insert
 
@@ -194,10 +183,6 @@ public sealed class SqliteDatabase
         command.Parameters.AddWithValue("$port", preferences.Port); // SMTP port
         command.Parameters.AddWithValue("$userName", preferences.UserName); // SMTP user
         command.Parameters.AddWithValue("$password", preferences.Password); // SMTP password
-        command.Parameters.AddWithValue("$sourceIp", preferences.SourceIp); // LAN source IP
-        command.Parameters.AddWithValue("$sourcePort", preferences.SourcePort); // LAN source port
-        command.Parameters.AddWithValue("$destinationIp", preferences.DestinationIp); // LAN dest IP
-        command.Parameters.AddWithValue("$destinationPort", preferences.DestinationPort); // LAN dest port
         command.ExecuteNonQuery(); // Run UPDATE or INSERT
     } // end SavePreferences
 
@@ -300,17 +285,17 @@ public sealed class SqliteDatabase
                 thevalue TEXT, -- Right pane
                 userid INTEGER -- Owner user.id
             );
-            CREATE TABLE IF NOT EXISTS preferences ( -- SMTP + LAN form
+            CREATE TABLE IF NOT EXISTS preferences ( -- SMTP form (LAN columns unused; chat is on the Chat tab)
                 UserID INTEGER, -- Owner user.id
                 FromAddress TEXT, -- SMTP From
                 Port TEXT, -- SMTP port
                 UserName TEXT, -- SMTP user
                 Password TEXT, -- SMTP password
                 Host TEXT, -- SMTP host
-                SourceIP TEXT, -- LAN source IP
-                SourcePort TEXT, -- LAN source port
-                DestinationIP TEXT, -- LAN dest IP
-                DestinationPort TEXT -- LAN dest port
+                SourceIP TEXT, -- Unused leftover from WinForms LAN form
+                SourcePort TEXT, -- Unused leftover from WinForms LAN form
+                DestinationIP TEXT, -- Unused leftover from WinForms LAN form
+                DestinationPort TEXT -- Unused leftover from WinForms LAN form
             );
             """;
         command.ExecuteNonQuery(); // Create missing tables; leave existing ones alone

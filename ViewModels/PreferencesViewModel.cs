@@ -5,7 +5,7 @@ using CommunityToolkit.Mvvm.Input; // RelayCommand
 
 namespace AvaloniaDCT.ViewModels; // Preferences window logic
 
-// Loads/saves the preferences table. Fields bind two-way to the Preferences window TextBoxes.
+// Loads/saves SMTP fields on the preferences table. LAN chat is on the Chat tab, not this form.
 public partial class PreferencesViewModel : ObservableObject // partial for generated properties and commands
 {
     private readonly SqliteDatabase _database; // Load/SavePreferences
@@ -26,18 +26,6 @@ public partial class PreferencesViewModel : ObservableObject // partial for gene
     [ObservableProperty] // Generates Password
     private string _password = ""; // SMTP password TextBox
 
-    [ObservableProperty] // Generates SourceIp
-    private string _sourceIp = ""; // LAN source IP TextBox
-
-    [ObservableProperty] // Generates SourcePort
-    private string _sourcePort = ""; // LAN source port TextBox
-
-    [ObservableProperty] // Generates DestinationIp
-    private string _destinationIp = ""; // LAN destination IP TextBox
-
-    [ObservableProperty] // Generates DestinationPort
-    private string _destinationPort = ""; // LAN destination port TextBox
-
     public event Action? CloseRequested; // Save and Cancel both close; DialogService owns Close()
 
     public PreferencesViewModel(SqliteDatabase database, UserSession user) // DialogService constructs this
@@ -51,26 +39,18 @@ public partial class PreferencesViewModel : ObservableObject // partial for gene
         Port = preferences.Port; // Fill SMTP port
         UserName = preferences.UserName; // Fill SMTP user
         Password = preferences.Password; // Fill SMTP password
-        SourceIp = preferences.SourceIp; // Fill LAN source IP
-        SourcePort = preferences.SourcePort; // Fill LAN source port
-        DestinationIp = preferences.DestinationIp; // Fill LAN dest IP
-        DestinationPort = preferences.DestinationPort; // Fill LAN dest port
     } // end constructor
 
     [RelayCommand] // Becomes SaveCommand
     private void Save() // Write the form back to SQLite
     {
-        _database.SavePreferences(_user.UserId, new UserPreferences // Snapshot of every bound field
+        _database.SavePreferences(_user.UserId, new UserPreferences // Snapshot of SMTP fields
         {
             FromAddress = FromAddress, // SMTP From
             Host = Host, // SMTP host
             Port = Port, // SMTP port
             UserName = UserName, // SMTP user
-            Password = Password, // SMTP password
-            SourceIp = SourceIp, // LAN source IP
-            SourcePort = SourcePort, // LAN source port
-            DestinationIp = DestinationIp, // LAN dest IP
-            DestinationPort = DestinationPort // LAN dest port
+            Password = Password // SMTP password
         });
 
         CloseRequested?.Invoke(); // Close after a successful save

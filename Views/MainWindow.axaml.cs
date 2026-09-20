@@ -13,11 +13,12 @@ public partial class MainWindow : Window // partial: XAML compiler generates the
         Closing += OnClosing; // Persist even if the user clicks the caption X
     } // end constructor
 
-    private void OnClosing(object? sender, WindowClosingEventArgs e) // Last chance before the window is gone
+    private async void OnClosing(object? sender, WindowClosingEventArgs e) // Last chance before the window is gone
     {
         if (DataContext is MainViewModel viewModel) // Normal path: VM was assigned
         {
             viewModel.Persist(); // Always save clipboard rows when the window goes away
+            await viewModel.ShutdownChatAsync(); // Drop the LAN listen/join so the port is released
         } // end if MainViewModel
     } // end OnClosing
 

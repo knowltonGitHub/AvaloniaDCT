@@ -4,6 +4,7 @@ public sealed class AppSecurityProfile
 {
     public bool IsHardened { get; init; }
     public string DatabasePath { get; init; } = "";
+    public string TitleMode { get; init; } = "";
 
     public static AppSecurityProfile Detect()
     {
@@ -24,10 +25,19 @@ public sealed class AppSecurityProfile
                 "CBDB.db")
             : Path.Combine(AppContext.BaseDirectory, "CBDB.db");
 
+#if DEBUG
+        var titleMode = hardened
+            ? "DEBUG HARDENED - ENCRYPTED"
+            : "DEVELOPMENT - UNENCRYPTED";
+#else
+        var titleMode = "RELEASE - ENCRYPTED";
+#endif
+
         return new AppSecurityProfile
         {
             IsHardened = hardened,
-            DatabasePath = databasePath
+            DatabasePath = databasePath,
+            TitleMode = titleMode
         };
     }
 }

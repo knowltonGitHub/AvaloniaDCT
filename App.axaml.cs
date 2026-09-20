@@ -28,7 +28,7 @@ public partial class App : Application
 
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
-            var loginViewModel = new LoginViewModel(database);
+            var loginViewModel = new LoginViewModel(database, profile);
             var loginWindow = new LoginWindow
             {
                 DataContext = loginViewModel
@@ -48,7 +48,8 @@ public partial class App : Application
                     database,
                     user,
                     new DialogService(mainWindow),
-                    new AvaloniaClipboardService(mainWindow));
+                    new AvaloniaClipboardService(mainWindow),
+                    profile);
                 mainWindow.DataContext = mainViewModel;
                 mainViewModel.ExitRequested += () => mainWindow.Close();
                 desktop.MainWindow = mainWindow;

@@ -432,3 +432,6 @@ FodyWeavers.xsd
 CBDB.db
 CBDB*.db
 *.db
+
+# Publish / installer output (rebuild with installer/build.ps1)
+artifacts/

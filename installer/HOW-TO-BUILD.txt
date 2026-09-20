@@ -1,0 +1,49 @@
+FROM:        Cursor
+TO:          You
+DATE:        2026-09-20
+SUBJECT:     Downloadable installer for client showcase
+
+------------------------------------------------------------------------------
+WHAT YOU GET
+------------------------------------------------------------------------------
+
+  artifacts\releases\DesktopClipboardToolkit-win-Setup.exe
+
+That is a one-click per-user installer (Velopack, free). Clients run it;
+the app lands in %LocalAppData%\DesktopClipboardToolkit. No admin prompt.
+
+The encrypted database is NOT in the installer. First login creates
+%LocalAppData%\AvaloniaDCT\CBDB.db. Uninstalling the app does not live
+in the same folder as the vault.
+
+Release login does not prefill knowlton. First launch says "Create account."
+
+
+------------------------------------------------------------------------------
+BUILD
+------------------------------------------------------------------------------
+
+  powershell -File installer\build.ps1
+
+Requires: .NET SDK 10 (already on this machine). The script installs the
+Velopack CLI (vpk) as a dotnet global tool if it is missing.
+
+Self-contained win-x64: the client does not need to install .NET.
+
+
+------------------------------------------------------------------------------
+GIVE IT TO CLIENTS
+------------------------------------------------------------------------------
+
+1. Run installer\build.ps1
+2. Upload DesktopClipboardToolkit-win-Setup.exe to a GitHub Release
+   (https://github.com/knowltonGitHub/AvaloniaDCT/releases)
+3. Send that download link
+
+The Setup.exe is unsigned. Windows SmartScreen may warn on first run.
+Click More info -> Run anyway. A code-signing certificate (~$100-400/year)
+removes that warning later if you want.
+
+Do not commit artifacts\ (gitignored). Rebuild when you ship a new version;
+bump <Version> in AvaloniaDCT.csproj and --packVersion in installer\build.ps1
+together.

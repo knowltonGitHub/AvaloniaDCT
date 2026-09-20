@@ -3,7 +3,8 @@
         xmlns:vm="using:AvaloniaDCT.ViewModels"
         x:Class="AvaloniaDCT.Views.LoginWindow"
         x:DataType="vm:LoginViewModel"
-        Title="Desktop Clipboard Toolkit - Login"
+        Title="{Binding WindowTitle}"
+        MinWidth="380"
         Width="380"
         SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
@@ -16,7 +17,8 @@
         <TextBlock Text="Desktop Clipboard Toolkit"
                    FontSize="20"
                    FontWeight="SemiBold" />
-        <TextBlock Text="Sign in to continue."
+        <TextBlock Text="{Binding Instruction}"
+                   TextWrapping="Wrap"
                    Opacity="0.75" />
 
         <TextBlock Text="User name" />
@@ -32,7 +34,7 @@
                    Foreground="#C62828"
                    IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
-        <Button Content="Login"
+        <Button Content="{Binding LoginButtonText}"
                 HorizontalAlignment="Right"
                 MinWidth="100"
                 Command="{Binding LoginCommand}" />

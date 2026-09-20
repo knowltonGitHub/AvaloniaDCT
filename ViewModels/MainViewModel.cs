@@ -40,7 +40,8 @@ public partial class MainViewModel : ObservableObject
         SqliteDatabase database,
         UserSession user,
         IDialogService dialogs,
-        IAppClipboard clipboard)
+        IAppClipboard clipboard,
+        AppSecurityProfile profile)
     {
         _database = database;
         _user = user;
@@ -49,7 +50,7 @@ public partial class MainViewModel : ObservableObject
         _store = new ClipboardStore();
         _store.Load(database.LoadTagItemValues(user.UserId));
         DatabaseBackup.CreateCopy(database.DatabasePath, _store.Items.Count, "AFTER_MEMORY_FILL");
-        WindowTitle = $"Desktop Clipboard Toolkit - {user.UserName}";
+        WindowTitle = $"Desktop Clipboard Toolkit - {user.UserName} - {profile.TitleMode}";
         RefreshTags();
     }
 

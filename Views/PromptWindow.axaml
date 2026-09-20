@@ -16,12 +16,14 @@
     <StackPanel Margin="20" Spacing="10">
         <TextBlock Text="{Binding NameLabel}"
                    IsVisible="{Binding ShowName}" />
-        <TextBox Text="{Binding Name}"
+        <TextBox x:Name="NameBox"
+                 Text="{Binding Name}"
                  IsVisible="{Binding ShowName}" />
 
         <TextBlock Text="{Binding ValueLabel}"
                    IsVisible="{Binding ShowValue}" />
-        <TextBox Text="{Binding Value}"
+        <TextBox x:Name="ValueBox"
+                 Text="{Binding Value}"
                  IsVisible="{Binding ShowValue}"
                  AcceptsReturn="{Binding ValueIsMultiline}"
                  TextWrapping="Wrap"

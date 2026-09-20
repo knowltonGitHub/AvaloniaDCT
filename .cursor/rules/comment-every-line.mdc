@@ -1,0 +1,23 @@
+---
+description: Comment every statement in new Avalonia DCT source so the owner can review and explain the app.
+alwaysApply: true
+---
+
+# Comment every line of new human-written code
+
+When adding or changing Avalonia DCT source (`.cs`, `.axaml`, `.csproj`), comment **every statement** the way a teacher would, not only method headers.
+
+- End-of-line comments on usings, fields, assignments, `if`s, returns, SQL, and XAML controls.
+- Explain **why** and what Avalonia/MVVM is doing (`DataContext`, `{Binding}`, `[RelayCommand]`, `ShowDialog`).
+- Do not skip "obvious" lines; this is for later walkthroughs by someone new to Avalonia.
+- XAML cannot put comments inside a start tag. Put a `<!-- -->` block immediately under the tag for its attributes, then a comment on each child control.
+- Skip `LEGACY DCT`, installer binaries, and CommunityToolkit-generated files. `[ObservableProperty]` / `[RelayCommand]` comments must describe the generated `Foo` / `FooCommand` names.
+- Closing braces may use a short `// end MethodName` when the block is non-trivial. Do not comment blank lines.
+
+```csharp
+var port = LanChatService.DefaultPort; // Shared TCP port; only the Host binds it
+if (!IsConnected) // Host/Join stay enabled until a session starts
+{
+    return; // Stay idle
+} // end if not connected
+```

@@ -8,18 +8,26 @@
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         ShowInTaskbar="False">
+    <!-- No xmlns:vm / x:DataType: this window is not bound to a ViewModel. -->
+    <!-- Fixed caption. Height fits content. CenterOwner, not resizable, not on the taskbar. -->
+
+    <!-- Vertical about layout. -->
     <StackPanel Margin="24" Spacing="12">
+        <!-- Product name. -->
         <TextBlock Text="Desktop Clipboard Toolkit"
                    FontSize="22"
                    FontWeight="SemiBold" />
+        <!-- Creator row: label + name. -->
         <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="Creator:" FontWeight="SemiBold" Width="80" />
             <TextBlock Text="Tom Knowlton" />
         </StackPanel>
+        <!-- Contact row: label + email. -->
         <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="Contact:" FontWeight="SemiBold" Width="80" />
             <TextBlock Text="softwaredevr@gmail.com" />
         </StackPanel>
+        <!-- OK calls CloseButton_OnClick in code-behind (no Command / ViewModel). -->
         <Button Content="OK"
                 HorizontalAlignment="Right"
                 MinWidth="90"

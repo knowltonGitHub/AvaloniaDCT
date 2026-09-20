@@ -10,87 +10,118 @@
         MinWidth="800"
         MinHeight="420"
         WindowStartupLocation="CenterScreen">
+    <!-- xmlns / x:Class / x:DataType same pattern as LoginWindow. Title includes user + mode. -->
+    <!-- 1100x560 default; min 800x420 so the three columns stay usable. Centered on the screen. -->
+
+    <!-- DockPanel: menu on top, grid fills the rest. -->
     <DockPanel>
-        <!-- Underscore in Header = Alt mnemonic (Alt+F, Alt+H). -->
+        <!-- Underscore in Header = Alt mnemonic (Alt+F, Alt+H). Dock Top so the grid gets leftover space. -->
         <Menu DockPanel.Dock="Top">
+            <!-- File menu. -->
             <MenuItem Header="_File">
+                <!-- File > Preferences → OpenPreferencesCommand. -->
                 <MenuItem Header="_Preferences" Command="{Binding OpenPreferencesCommand}" />
+                <!-- Visual separator. -->
                 <Separator />
+                <!-- File > Exit → ExitCommand (closes MainWindow, which persists). -->
                 <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
             </MenuItem>
+            <!-- Help menu. -->
             <MenuItem Header="_Help">
+                <!-- Help > About → OpenAboutCommand. -->
                 <MenuItem Header="_About" Command="{Binding OpenAboutCommand}" />
             </MenuItem>
         </Menu>
 
-        <!-- Three equal columns. * * * means share leftover width. -->
+        <!-- Three equal columns. * * * means share leftover width. 12px margin and column gap. -->
         <Grid Margin="12" ColumnDefinitions="* * *" ColumnSpacing="12">
+            <!-- Column 0: Tags. Semi-transparent gray border, 4px corners, 10px padding. -->
             <Border BorderBrush="#66808080"
                     BorderThickness="1"
                     CornerRadius="4"
                     Padding="10">
+                <!-- Title top, buttons bottom, list fills the middle. -->
                 <DockPanel>
+                    <!-- "Tags" heading. -->
                     <TextBlock DockPanel.Dock="Top"
                                Text="Tags"
                                FontWeight="SemiBold"
                                Margin="0,0,0,8" />
+                    <!-- Add / Rename / Delete for tags. Horizontal row at the bottom. -->
                     <StackPanel DockPanel.Dock="Bottom"
                                 Orientation="Horizontal"
                                 Spacing="8"
                                 Margin="0,8,0,0">
+                        <!-- AddTagCommand — always enabled. -->
                         <Button Content="Add" Command="{Binding AddTagCommand}" />
+                        <!-- RenameTagCommand — CanExecute HasSelectedTag. -->
                         <Button Content="Rename" Command="{Binding RenameTagCommand}" />
+                        <!-- DeleteTagCommand — CanExecute HasSelectedTag. -->
                         <Button Content="Delete" Command="{Binding DeleteTagCommand}" />
                     </StackPanel>
-                    <!-- SelectedItem two-way: clicking a tag sets MainViewModel.SelectedTag. -->
+                    <!-- ItemsSource = Tags. SelectedItem two-way sets MainViewModel.SelectedTag. Double-tap = rename. -->
                     <ListBox ItemsSource="{Binding Tags}"
                              SelectedItem="{Binding SelectedTag}"
                              DoubleTapped="TagsList_OnDoubleTapped" />
                 </DockPanel>
             </Border>
 
+            <!-- Column 1: Items. Grid.Column="1" places it in the middle star column. -->
             <Border Grid.Column="1"
                     BorderBrush="#66808080"
                     BorderThickness="1"
                     CornerRadius="4"
                     Padding="10">
                 <DockPanel>
+                    <!-- "Items" heading. -->
                     <TextBlock DockPanel.Dock="Top"
                                Text="Items"
                                FontWeight="SemiBold"
                                Margin="0,0,0,8" />
+                    <!-- Add / Rename / Delete for items. -->
                     <StackPanel DockPanel.Dock="Bottom"
                                 Orientation="Horizontal"
                                 Spacing="8"
                                 Margin="0,8,0,0">
+                        <!-- AddItemCommand — needs a selected tag. -->
                         <Button Content="Add" Command="{Binding AddItemCommand}" />
+                        <!-- RenameItemCommand — needs a selected item. -->
                         <Button Content="Rename" Command="{Binding RenameItemCommand}" />
+                        <!-- DeleteItemCommand — needs a selected item. -->
                         <Button Content="Delete" Command="{Binding DeleteItemCommand}" />
                     </StackPanel>
+                    <!-- ItemsSource = Items. SelectedItem two-way = SelectedItem (copies value). Double-tap = rename. -->
                     <ListBox ItemsSource="{Binding Items}"
                              SelectedItem="{Binding SelectedItem}"
                              DoubleTapped="ItemsList_OnDoubleTapped" />
                 </DockPanel>
             </Border>
 
+            <!-- Column 2: Value pane. -->
             <Border Grid.Column="2"
                     BorderBrush="#66808080"
                     BorderThickness="1"
                     CornerRadius="4"
                     Padding="10">
                 <DockPanel>
+                    <!-- "Value" heading. -->
                     <TextBlock DockPanel.Dock="Top"
                                Text="Value"
                                FontWeight="SemiBold"
                                Margin="0,0,0,8" />
+                    <!-- Copy / Open URL / Edit. -->
                     <StackPanel DockPanel.Dock="Bottom"
                                 Orientation="Horizontal"
                                 Spacing="8"
                                 Margin="0,8,0,0">
+                        <!-- CopyValueCommand — needs a non-empty value. -->
                         <Button Content="Copy" Command="{Binding CopyValueCommand}" />
+                        <!-- OpenUrlCommand — CanExecute IsWebUrl. -->
                         <Button Content="Open URL" Command="{Binding OpenUrlCommand}" />
+                        <!-- EditValueCommand — needs a selected item. -->
                         <Button Content="Edit" Command="{Binding EditValueCommand}" />
                     </StackPanel>
+                    <!-- Read-only paste preview. Wrap + AcceptsReturn for multi-line values. Double-tap = edit. -->
                     <TextBox Text="{Binding SelectedValue}"
                              IsReadOnly="True"
                              AcceptsReturn="True"

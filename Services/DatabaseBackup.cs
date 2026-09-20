@@ -1,34 +1,33 @@
-namespace AvaloniaDCT.Services;
+namespace AvaloniaDCT.Services; // Sidecar copies of CBDB.db
 
-// Sidecar copies of CBDB.db (BEFORE_USE, AFTER_MEMORY_FILL, AUTO_BACKUP).
+// Copies named BEFORE_USE, AFTER_MEMORY_FILL, AUTO_BACKUP.
 // File.Copy of an encrypted file stays encrypted — the backup is not a plaintext leak.
-public static class DatabaseBackup
+public static class DatabaseBackup // static: no instance state
 {
-    public static void CreateCopy(string databasePath, int rowCount, string message)
+    public static void CreateCopy(string databasePath, int rowCount, string message) // message is the reason stamp in the file name
     {
-        if (!File.Exists(databasePath))
+        if (!File.Exists(databasePath)) // First install: the file is not there yet
         {
-            return; // First install: nothing to copy yet.
-        }
+            return; // Nothing to copy
+        } // end if missing file
 
-        try
+        try // Backup must never fail login or save
         {
-            var directory = Path.GetDirectoryName(databasePath);
-            if (string.IsNullOrWhiteSpace(directory))
+            var directory = Path.GetDirectoryName(databasePath); // Folder that holds CBDB.db
+            if (string.IsNullOrWhiteSpace(directory)) // Path with no directory component
             {
-                directory = AppContext.BaseDirectory;
-            }
+                directory = AppContext.BaseDirectory; // Fall back to the exe folder
+            } // end if empty directory
 
-            // Same stamp the old Helper built by hand: 14-digit local time.
-            var stamp = DateTime.Now.ToString("yyyyMMddHHmmss");
-            var fileName = $"CBDB{stamp}_{message}_{rowCount}.db";
-            var destination = Path.Combine(directory, fileName);
-            File.Copy(databasePath, destination, overwrite: false);
-            File.SetLastWriteTime(destination, DateTime.Now);
-        }
-        catch (IOException)
+            var stamp = DateTime.Now.ToString("yyyyMMddHHmmss"); // Same 14-digit local stamp the old Helper built by hand
+            var fileName = $"CBDB{stamp}_{message}_{rowCount}.db"; // e.g. CBDB20260920100700_AUTO_BACKUP_12.db
+            var destination = Path.Combine(directory, fileName); // Full path next to CBDB.db
+            File.Copy(databasePath, destination, overwrite: false); // Do not overwrite an existing stamp
+            File.SetLastWriteTime(destination, DateTime.Now); // Touch so Explorer sorts by this copy time
+        } // end try
+        catch (IOException) // Disk full / file locked
         {
-            // Disk full / file locked: never fail login or save because a backup failed.
-        }
-    }
-}
+            // Swallow: never fail login or save because a backup failed.
+        } // end catch IOException
+    } // end CreateCopy
+} // end DatabaseBackup

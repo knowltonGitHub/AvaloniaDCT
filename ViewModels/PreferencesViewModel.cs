@@ -1,84 +1,84 @@
-using AvaloniaDCT.Models;
-using AvaloniaDCT.Services;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using AvaloniaDCT.Models; // UserSession, UserPreferences
+using AvaloniaDCT.Services; // SqliteDatabase
+using CommunityToolkit.Mvvm.ComponentModel; // ObservableObject, ObservableProperty
+using CommunityToolkit.Mvvm.Input; // RelayCommand
 
-namespace AvaloniaDCT.ViewModels;
+namespace AvaloniaDCT.ViewModels; // Preferences window logic
 
 // Loads/saves the preferences table. Fields bind two-way to the Preferences window TextBoxes.
-public partial class PreferencesViewModel : ObservableObject
+public partial class PreferencesViewModel : ObservableObject // partial for generated properties and commands
 {
-    private readonly SqliteDatabase _database;
-    private readonly UserSession _user;
+    private readonly SqliteDatabase _database; // Load/SavePreferences
+    private readonly UserSession _user; // Whose row to load/save
 
-    [ObservableProperty]
-    private string _fromAddress = "";
+    [ObservableProperty] // Generates FromAddress
+    private string _fromAddress = ""; // SMTP From Address TextBox
 
-    [ObservableProperty]
-    private string _host = "";
+    [ObservableProperty] // Generates Host
+    private string _host = ""; // SMTP Host TextBox
 
-    [ObservableProperty]
-    private string _port = "";
+    [ObservableProperty] // Generates Port
+    private string _port = ""; // SMTP Port TextBox
 
-    [ObservableProperty]
-    private string _userName = "";
+    [ObservableProperty] // Generates UserName
+    private string _userName = ""; // SMTP user name TextBox
 
-    [ObservableProperty]
-    private string _password = "";
+    [ObservableProperty] // Generates Password
+    private string _password = ""; // SMTP password TextBox
 
-    [ObservableProperty]
-    private string _sourceIp = "";
+    [ObservableProperty] // Generates SourceIp
+    private string _sourceIp = ""; // LAN source IP TextBox
 
-    [ObservableProperty]
-    private string _sourcePort = "";
+    [ObservableProperty] // Generates SourcePort
+    private string _sourcePort = ""; // LAN source port TextBox
 
-    [ObservableProperty]
-    private string _destinationIp = "";
+    [ObservableProperty] // Generates DestinationIp
+    private string _destinationIp = ""; // LAN destination IP TextBox
 
-    [ObservableProperty]
-    private string _destinationPort = "";
+    [ObservableProperty] // Generates DestinationPort
+    private string _destinationPort = ""; // LAN destination port TextBox
 
-    public event Action? CloseRequested;
+    public event Action? CloseRequested; // Save and Cancel both close; DialogService owns Close()
 
-    public PreferencesViewModel(SqliteDatabase database, UserSession user)
+    public PreferencesViewModel(SqliteDatabase database, UserSession user) // DialogService constructs this
     {
-        _database = database;
-        _user = user;
+        _database = database; // Keep for Save
+        _user = user; // Keep for user.id
 
-        var preferences = database.LoadPreferences(user.UserId);
-        FromAddress = preferences.FromAddress;
-        Host = preferences.Host;
-        Port = preferences.Port;
-        UserName = preferences.UserName;
-        Password = preferences.Password;
-        SourceIp = preferences.SourceIp;
-        SourcePort = preferences.SourcePort;
-        DestinationIp = preferences.DestinationIp;
-        DestinationPort = preferences.DestinationPort;
-    }
+        var preferences = database.LoadPreferences(user.UserId); // Existing row or empty DTO
+        FromAddress = preferences.FromAddress; // Fill SMTP From
+        Host = preferences.Host; // Fill SMTP host
+        Port = preferences.Port; // Fill SMTP port
+        UserName = preferences.UserName; // Fill SMTP user
+        Password = preferences.Password; // Fill SMTP password
+        SourceIp = preferences.SourceIp; // Fill LAN source IP
+        SourcePort = preferences.SourcePort; // Fill LAN source port
+        DestinationIp = preferences.DestinationIp; // Fill LAN dest IP
+        DestinationPort = preferences.DestinationPort; // Fill LAN dest port
+    } // end constructor
 
-    [RelayCommand]
-    private void Save()
+    [RelayCommand] // Becomes SaveCommand
+    private void Save() // Write the form back to SQLite
     {
-        _database.SavePreferences(_user.UserId, new UserPreferences
+        _database.SavePreferences(_user.UserId, new UserPreferences // Snapshot of every bound field
         {
-            FromAddress = FromAddress,
-            Host = Host,
-            Port = Port,
-            UserName = UserName,
-            Password = Password,
-            SourceIp = SourceIp,
-            SourcePort = SourcePort,
-            DestinationIp = DestinationIp,
-            DestinationPort = DestinationPort
+            FromAddress = FromAddress, // SMTP From
+            Host = Host, // SMTP host
+            Port = Port, // SMTP port
+            UserName = UserName, // SMTP user
+            Password = Password, // SMTP password
+            SourceIp = SourceIp, // LAN source IP
+            SourcePort = SourcePort, // LAN source port
+            DestinationIp = DestinationIp, // LAN dest IP
+            DestinationPort = DestinationPort // LAN dest port
         });
 
-        CloseRequested?.Invoke();
-    }
+        CloseRequested?.Invoke(); // Close after a successful save
+    } // end Save
 
-    [RelayCommand]
-    private void Cancel()
+    [RelayCommand] // Becomes CancelCommand
+    private void Cancel() // Discard edits
     {
-        CloseRequested?.Invoke();
-    }
-}
+        CloseRequested?.Invoke(); // Close without writing
+    } // end Cancel
+} // end PreferencesViewModel

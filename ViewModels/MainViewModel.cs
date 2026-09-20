@@ -1,398 +1,394 @@
-using System.Collections.ObjectModel;
-using System.Diagnostics;
-using AvaloniaDCT.Models;
-using AvaloniaDCT.Services;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using System.Collections.ObjectModel; // ObservableCollection for ListBoxes
+using System.Diagnostics; // Process.Start for Open URL
+using AvaloniaDCT.Models; // UserSession, TagItemValue
+using AvaloniaDCT.Services; // SqliteDatabase, ClipboardStore, dialogs, clipboard, profile
+using CommunityToolkit.Mvvm.ComponentModel; // ObservableObject, ObservableProperty
+using CommunityToolkit.Mvvm.Input; // RelayCommand
 
-namespace AvaloniaDCT.ViewModels;
+namespace AvaloniaDCT.ViewModels; // Main clipboard screen
 
-// Main clipboard screen. Commands bind to buttons/menus. ObservableCollections bind to ListBoxes.
-public partial class MainViewModel : ObservableObject
+// Commands bind to buttons/menus. ObservableCollections bind to ListBoxes.
+public partial class MainViewModel : ObservableObject // partial for generated properties and *Command
 {
-    private readonly SqliteDatabase _database;
-    private readonly UserSession _user;
-    private readonly ClipboardStore _store;
-    private readonly IDialogService _dialogs;
-    private readonly IAppClipboard _clipboard;
-    private bool _suppressClipboardCopy; // Avoid copying while we rebuild the Items list.
+    private readonly SqliteDatabase _database; // Persist / preferences
+    private readonly UserSession _user; // Logged-in user
+    private readonly ClipboardStore _store; // In-memory tag/item/value list
+    private readonly IDialogService _dialogs; // Prompts, confirms, about, preferences
+    private readonly IAppClipboard _clipboard; // OS clipboard
+    private bool _suppressClipboardCopy; // Avoid copying while we rebuild the Items list
 
-    [ObservableProperty]
-    private string _windowTitle = "Desktop Clipboard Toolkit";
+    [ObservableProperty] // Generates WindowTitle
+    private string _windowTitle = "Desktop Clipboard Toolkit"; // Caption before constructor fills user + mode
 
-    [ObservableProperty]
-    private string? _selectedTag;
+    [ObservableProperty] // Generates SelectedTag; also OnSelectedTagChanged
+    private string? _selectedTag; // Left ListBox selection
 
-    [ObservableProperty]
-    private string? _selectedItem;
+    [ObservableProperty] // Generates SelectedItem; also OnSelectedItemChanged
+    private string? _selectedItem; // Middle ListBox selection
 
-    [ObservableProperty]
-    private string _selectedValue = "";
+    [ObservableProperty] // Generates SelectedValue
+    private string _selectedValue = ""; // Right pane text
 
-    [ObservableProperty]
-    private bool _isWebUrl; // Enables the Open URL button.
+    [ObservableProperty] // Generates IsWebUrl
+    private bool _isWebUrl; // Enables the Open URL button
 
-    // ObservableCollection notifies the ListBox when we Add/Clear.
-    public ObservableCollection<string> Tags { get; } = [];
-    public ObservableCollection<string> Items { get; } = [];
+    public ObservableCollection<string> Tags { get; } = []; // Left ListBox ItemsSource; notifies on Add/Clear
+    public ObservableCollection<string> Items { get; } = []; // Middle ListBox ItemsSource
 
-    public event Action? ExitRequested;
+    public event Action? ExitRequested; // File > Exit; App.axaml.cs closes MainWindow
 
-    public MainViewModel(
-        SqliteDatabase database,
-        UserSession user,
-        IDialogService dialogs,
-        IAppClipboard clipboard,
-        AppSecurityProfile profile)
+    public MainViewModel( // App.axaml.cs constructs this after login
+        SqliteDatabase database, // Same helper as login
+        UserSession user, // Who just signed in
+        IDialogService dialogs, // Owned by MainWindow
+        IAppClipboard clipboard, // Owned by MainWindow
+        AppSecurityProfile profile) // TitleMode for the caption
     {
-        _database = database;
-        _user = user;
-        _dialogs = dialogs;
-        _clipboard = clipboard;
-        _store = new ClipboardStore();
-        _store.Load(database.LoadTagItemValues(user.UserId));
-        DatabaseBackup.CreateCopy(database.DatabasePath, _store.Items.Count, "AFTER_MEMORY_FILL");
-        WindowTitle = $"Desktop Clipboard Toolkit - {user.UserName} - {profile.TitleMode}";
-        RefreshTags();
-    }
+        _database = database; // Keep for Persist / preferences
+        _user = user; // Keep for user.id and caption
+        _dialogs = dialogs; // Keep for prompts
+        _clipboard = clipboard; // Keep for copy-on-select
+        _store = new ClipboardStore(); // Empty until Load
+        _store.Load(database.LoadTagItemValues(user.UserId)); // SQLite → memory
+        DatabaseBackup.CreateCopy(database.DatabasePath, _store.Items.Count, "AFTER_MEMORY_FILL"); // Sidecar after load
+        WindowTitle = $"Desktop Clipboard Toolkit - {user.UserName} - {profile.TitleMode}"; // User + DEVELOPMENT/HARDENED/RELEASE
+        RefreshTags(); // Fill the left list
+    } // end constructor
 
-    // Called from MainWindow.Closing so one close path always writes SQLite.
-    public void Persist()
+    public void Persist() // Called from MainWindow.Closing so one close path always writes SQLite
     {
-        _database.OverwriteTagItemValues(_user.UserId, _store.Items);
-    }
+        _database.OverwriteTagItemValues(_user.UserId, _store.Items); // Replace this user's clipboard rows
+    } // end Persist
 
-    [RelayCommand]
-    private async Task OpenPreferences()
+    [RelayCommand] // Becomes OpenPreferencesCommand
+    private async Task OpenPreferences() // File > Preferences
     {
-        await _dialogs.ShowPreferencesAsync(_database, _user);
-    }
+        await _dialogs.ShowPreferencesAsync(_database, _user); // Modal preferences
+    } // end OpenPreferences
 
-    [RelayCommand]
-    private async Task OpenAbout()
+    [RelayCommand] // Becomes OpenAboutCommand
+    private async Task OpenAbout() // Help > About
     {
-        await _dialogs.ShowAboutAsync();
-    }
+        await _dialogs.ShowAboutAsync(); // Modal about box
+    } // end OpenAbout
 
-    [RelayCommand]
-    private void Exit()
+    [RelayCommand] // Becomes ExitCommand
+    private void Exit() // File > Exit
     {
-        ExitRequested?.Invoke(); // App.axaml.cs closes MainWindow (which persists).
-    }
+        ExitRequested?.Invoke(); // App.axaml.cs closes MainWindow (which persists)
+    } // end Exit
 
-    [RelayCommand]
-    private async Task AddTag()
+    [RelayCommand] // Becomes AddTagCommand
+    private async Task AddTag() // Tags Add button
     {
-        var result = await _dialogs.PromptAsync(new PromptRequest
+        var result = await _dialogs.PromptAsync(new PromptRequest // Name-only dialog
         {
-            Title = "Add Tag",
-            NameLabel = "Tag name",
-            ShowName = true
+            Title = "Add Tag", // Caption
+            NameLabel = "Tag name", // Label
+            ShowName = true // Show the name box
         });
 
-        var name = result?.Name.Trim() ?? "";
-        if (string.IsNullOrWhiteSpace(name))
+        var name = result?.Name.Trim() ?? ""; // Empty if Cancel
+        if (string.IsNullOrWhiteSpace(name)) // Cancel or blank
         {
-            return;
-        }
+            return; // Do nothing
+        } // end if blank name
 
-        if (_store.TagExists(name))
+        if (_store.TagExists(name)) // Duplicate
         {
-            await _dialogs.ShowMessageAsync("Add Tag", $"A tag named '{name}' already exists.");
-            return;
-        }
+            await _dialogs.ShowMessageAsync("Add Tag", $"A tag named '{name}' already exists."); // OK message
+            return; // Do not add
+        } // end if duplicate
 
-        _store.AddTag(name, _user.UserId);
-        RefreshTags();
-        SelectedTag = name;
-    }
+        _store.AddTag(name, _user.UserId); // Placeholder row
+        RefreshTags(); // Rebuild left list
+        SelectedTag = name; // Select the new tag
+    } // end AddTag
 
-    // CanExecute disables the Rename button until a tag is selected.
-    [RelayCommand(CanExecute = nameof(HasSelectedTag))]
-    private async Task RenameTag()
+    [RelayCommand(CanExecute = nameof(HasSelectedTag))] // Disable Rename until a tag is selected
+    private async Task RenameTag() // Tags Rename button / double-tap
     {
-        if (string.IsNullOrEmpty(SelectedTag))
+        if (string.IsNullOrEmpty(SelectedTag)) // Belt-and-suspenders with CanExecute
         {
-            return;
-        }
+            return; // Nothing selected
+        } // end if no tag
 
-        var current = SelectedTag;
+        var current = SelectedTag; // Capture; SelectedTag might change during the dialog
         var result = await _dialogs.PromptAsync(new PromptRequest
         {
-            Title = "Rename Tag",
-            NameLabel = "Tag name",
-            Name = current,
-            ShowName = true
+            Title = "Rename Tag", // Caption
+            NameLabel = "Tag name", // Label
+            Name = current, // Pre-fill old name (SelectAll in PromptWindow)
+            ShowName = true // Show the name box
         });
 
-        var name = result?.Name.Trim() ?? "";
-        if (string.IsNullOrWhiteSpace(name) || name == current)
+        var name = result?.Name.Trim() ?? ""; // Empty if Cancel
+        if (string.IsNullOrWhiteSpace(name) || name == current) // Cancel, blank, or unchanged
         {
-            return;
-        }
+            return; // Do nothing
+        } // end if no rename
 
-        if (_store.TagExists(name))
+        if (_store.TagExists(name)) // Duplicate of a different tag
         {
-            await _dialogs.ShowMessageAsync("Rename Tag", $"A tag named '{name}' already exists.");
-            return;
-        }
+            await _dialogs.ShowMessageAsync("Rename Tag", $"A tag named '{name}' already exists."); // OK message
+            return; // Do not rename
+        } // end if duplicate
 
-        _store.RenameTag(current, name);
-        RefreshTags();
-        SelectedTag = name;
-    }
+        _store.RenameTag(current, name); // Rename all rows in memory
+        RefreshTags(); // Rebuild left list
+        SelectedTag = name; // Keep the renamed tag selected
+    } // end RenameTag
 
-    [RelayCommand(CanExecute = nameof(HasSelectedTag))]
-    private async Task DeleteTag()
+    [RelayCommand(CanExecute = nameof(HasSelectedTag))] // Disable Delete until a tag is selected
+    private async Task DeleteTag() // Tags Delete button
     {
-        if (string.IsNullOrEmpty(SelectedTag))
+        if (string.IsNullOrEmpty(SelectedTag)) // Nothing selected
         {
-            return;
-        }
+            return; // Do nothing
+        } // end if no tag
 
-        var tag = SelectedTag;
-        if (!await _dialogs.ConfirmAsync("Delete Tag", $"Delete tag '{tag}' and all of its items?"))
+        var tag = SelectedTag; // Capture
+        if (!await _dialogs.ConfirmAsync("Delete Tag", $"Delete tag '{tag}' and all of its items?")) // Cancel / Delete
         {
-            return;
-        }
+            return; // User cancelled
+        } // end if not confirmed
 
-        _store.DeleteTag(tag);
-        RefreshTags();
-        SelectedTag = null;
-    }
+        _store.DeleteTag(tag); // Drop tag and items
+        RefreshTags(); // Rebuild left list
+        SelectedTag = null; // Clear selection
+    } // end DeleteTag
 
-    [RelayCommand(CanExecute = nameof(HasSelectedTag))]
-    private async Task AddItem()
+    [RelayCommand(CanExecute = nameof(HasSelectedTag))] // Need a tag to add an item into
+    private async Task AddItem() // Items Add button
     {
-        if (string.IsNullOrEmpty(SelectedTag))
+        if (string.IsNullOrEmpty(SelectedTag)) // Nothing selected
         {
-            return;
-        }
+            return; // Do nothing
+        } // end if no tag
 
-        var tag = SelectedTag;
+        var tag = SelectedTag; // Capture parent tag
+        var result = await _dialogs.PromptAsync(new PromptRequest // Name + multiline value
+        {
+            Title = "Add Item", // Caption
+            NameLabel = "Item name", // Name label
+            ShowName = true, // Show name box
+            ValueLabel = "Value", // Value label
+            ShowValue = true, // Show value box
+            ValueIsMultiline = true // AcceptsReturn
+        });
+
+        if (result is null) // Cancel
+        {
+            return; // Do nothing
+        } // end if cancelled
+
+        var name = result.Name.Trim(); // Item name
+        if (string.IsNullOrWhiteSpace(name)) // Name is required
+        {
+            await _dialogs.ShowMessageAsync("Add Item", "Item name is required."); // OK message
+            return; // Do not add
+        } // end if blank name
+
+        if (_store.ItemExists(tag, name)) // Duplicate in this tag
+        {
+            await _dialogs.ShowMessageAsync("Add Item", $"An item named '{name}' already exists in this tag."); // OK message
+            return; // Do not add
+        } // end if duplicate
+
+        _store.AddItem(tag, name, result.Value, _user.UserId); // Memory row
+        RefreshItems(); // Rebuild middle list
+        SelectedItem = name; // Select the new item (copies value)
+    } // end AddItem
+
+    [RelayCommand(CanExecute = nameof(HasSelectedItem))] // Disable until an item is selected
+    private async Task RenameItem() // Items Rename button / double-tap
+    {
+        if (string.IsNullOrEmpty(SelectedTag) || string.IsNullOrEmpty(SelectedItem)) // Need both
+        {
+            return; // Do nothing
+        } // end if missing selection
+
+        var tag = SelectedTag; // Parent tag
+        var current = SelectedItem; // Old item name
         var result = await _dialogs.PromptAsync(new PromptRequest
         {
-            Title = "Add Item",
-            NameLabel = "Item name",
-            ShowName = true,
-            ValueLabel = "Value",
-            ShowValue = true,
-            ValueIsMultiline = true
+            Title = "Rename Item", // Caption
+            NameLabel = "Item name", // Label
+            Name = current, // Pre-fill
+            ShowName = true // Name-only dialog
         });
 
-        if (result is null)
+        var name = result?.Name.Trim() ?? ""; // Empty if Cancel
+        if (string.IsNullOrWhiteSpace(name) || name == current) // Cancel, blank, or unchanged
         {
-            return;
-        }
+            return; // Do nothing
+        } // end if no rename
 
-        var name = result.Name.Trim();
-        if (string.IsNullOrWhiteSpace(name))
+        if (_store.ItemExists(tag, name)) // Duplicate in this tag
         {
-            await _dialogs.ShowMessageAsync("Add Item", "Item name is required.");
-            return;
-        }
+            await _dialogs.ShowMessageAsync("Rename Item", $"An item named '{name}' already exists in this tag."); // OK message
+            return; // Do not rename
+        } // end if duplicate
 
-        if (_store.ItemExists(tag, name))
-        {
-            await _dialogs.ShowMessageAsync("Add Item", $"An item named '{name}' already exists in this tag.");
-            return;
-        }
+        _store.RenameItem(tag, current, name); // Rename in memory
+        RefreshItems(); // Rebuild middle list
+        SelectedItem = name; // Keep it selected
+    } // end RenameItem
 
-        _store.AddItem(tag, name, result.Value, _user.UserId);
-        RefreshItems();
-        SelectedItem = name;
-    }
-
-    [RelayCommand(CanExecute = nameof(HasSelectedItem))]
-    private async Task RenameItem()
+    [RelayCommand(CanExecute = nameof(HasSelectedItem))] // Disable until an item is selected
+    private async Task DeleteItem() // Items Delete button
     {
-        if (string.IsNullOrEmpty(SelectedTag) || string.IsNullOrEmpty(SelectedItem))
+        if (string.IsNullOrEmpty(SelectedTag) || string.IsNullOrEmpty(SelectedItem)) // Need both
         {
-            return;
-        }
+            return; // Do nothing
+        } // end if missing selection
 
-        var tag = SelectedTag;
-        var current = SelectedItem;
+        var tag = SelectedTag; // Parent tag
+        var item = SelectedItem; // Item to delete
+        if (!await _dialogs.ConfirmAsync("Delete Item", $"Delete item '{item}'?")) // Cancel / Delete
+        {
+            return; // User cancelled
+        } // end if not confirmed
+
+        _store.DeleteItem(tag, item); // Remove; may keep an empty tag row
+        RefreshItems(); // Rebuild middle list
+        SelectedItem = null; // Clear selection
+    } // end DeleteItem
+
+    [RelayCommand(CanExecute = nameof(HasSelectedItem))] // Disable until an item is selected
+    private async Task EditValue() // Value Edit button / double-tap
+    {
+        if (string.IsNullOrEmpty(SelectedTag) || string.IsNullOrEmpty(SelectedItem)) // Need both
+        {
+            return; // Do nothing
+        } // end if missing selection
+
+        var tag = SelectedTag; // Parent tag
+        var item = SelectedItem; // Item whose value we edit
         var result = await _dialogs.PromptAsync(new PromptRequest
         {
-            Title = "Rename Item",
-            NameLabel = "Item name",
-            Name = current,
-            ShowName = true
+            Title = "Edit Value", // Caption
+            ShowName = false, // Hide name box
+            ValueLabel = "Value", // Label
+            Value = SelectedValue, // Pre-fill current paste text
+            ShowValue = true, // Show value box
+            ValueIsMultiline = true // AcceptsReturn
         });
 
-        var name = result?.Name.Trim() ?? "";
-        if (string.IsNullOrWhiteSpace(name) || name == current)
+        if (result is null) // Cancel
         {
-            return;
-        }
+            return; // Do nothing
+        } // end if cancelled
 
-        if (_store.ItemExists(tag, name))
-        {
-            await _dialogs.ShowMessageAsync("Rename Item", $"An item named '{name}' already exists in this tag.");
-            return;
-        }
+        _store.UpdateValue(tag, item, result.Value); // Write memory
+        SelectedValue = result.Value; // Refresh right pane
+        IsWebUrl = ClipboardStore.IsWebUrl(SelectedValue); // Enable/disable Open URL
+        await CopySelectedAsync(); // Copy the new value immediately
+    } // end EditValue
 
-        _store.RenameItem(tag, current, name);
-        RefreshItems();
-        SelectedItem = name;
-    }
-
-    [RelayCommand(CanExecute = nameof(HasSelectedItem))]
-    private async Task DeleteItem()
+    [RelayCommand(CanExecute = nameof(HasSelectedValue))] // Disable when the value pane is empty
+    private async Task CopyValue() // Value Copy button
     {
-        if (string.IsNullOrEmpty(SelectedTag) || string.IsNullOrEmpty(SelectedItem))
-        {
-            return;
-        }
+        await CopySelectedAsync(); // Same path as click-to-copy
+    } // end CopyValue
 
-        var tag = SelectedTag;
-        var item = SelectedItem;
-        if (!await _dialogs.ConfirmAsync("Delete Item", $"Delete item '{item}'?"))
-        {
-            return;
-        }
-
-        _store.DeleteItem(tag, item);
-        RefreshItems();
-        SelectedItem = null;
-    }
-
-    [RelayCommand(CanExecute = nameof(HasSelectedItem))]
-    private async Task EditValue()
+    [RelayCommand(CanExecute = nameof(CanOpenUrl))] // Disable unless the value looks like a URL
+    private async Task OpenUrl() // Value Open URL button
     {
-        if (string.IsNullOrEmpty(SelectedTag) || string.IsNullOrEmpty(SelectedItem))
+        if (!IsWebUrl || string.IsNullOrWhiteSpace(SelectedValue)) // Button should already be disabled
         {
-            return;
-        }
+            return; // Do nothing
+        } // end if not a URL
 
-        var tag = SelectedTag;
-        var item = SelectedItem;
-        var result = await _dialogs.PromptAsync(new PromptRequest
-        {
-            Title = "Edit Value",
-            ShowName = false,
-            ValueLabel = "Value",
-            Value = SelectedValue,
-            ShowValue = true,
-            ValueIsMultiline = true
-        });
-
-        if (result is null)
-        {
-            return;
-        }
-
-        _store.UpdateValue(tag, item, result.Value);
-        SelectedValue = result.Value;
-        IsWebUrl = ClipboardStore.IsWebUrl(SelectedValue);
-        await CopySelectedAsync();
-    }
-
-    [RelayCommand(CanExecute = nameof(HasSelectedValue))]
-    private async Task CopyValue()
-    {
-        await CopySelectedAsync();
-    }
-
-    [RelayCommand(CanExecute = nameof(CanOpenUrl))]
-    private async Task OpenUrl()
-    {
-        if (!IsWebUrl || string.IsNullOrWhiteSpace(SelectedValue))
-        {
-            return;
-        }
-
-        try
+        try // Shell execute can throw if there is no file association
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = ClipboardStore.ToBrowsableUrl(SelectedValue),
-                UseShellExecute = true // Default browser, not a hardcoded Chrome path.
+                FileName = ClipboardStore.ToBrowsableUrl(SelectedValue), // Add https:// if missing
+                UseShellExecute = true // Default browser, not a hardcoded Chrome path
             });
-        }
-        catch (Exception ex)
+        } // end try
+        catch (Exception ex) // Association / permission failure
         {
-            await _dialogs.ShowMessageAsync("Open URL", $"Could not open the URL.\n{ex.Message}");
-        }
-    }
+            await _dialogs.ShowMessageAsync("Open URL", $"Could not open the URL.\n{ex.Message}"); // Show why
+        } // end catch
+    } // end OpenUrl
 
-    // Toolkit hook: runs whenever SelectedTag changes (list click).
-    partial void OnSelectedTagChanged(string? value)
+    partial void OnSelectedTagChanged(string? value) // Toolkit hook: runs whenever SelectedTag changes (list click)
     {
-        RefreshItems();
-        AddItemCommand.NotifyCanExecuteChanged();
-        RenameTagCommand.NotifyCanExecuteChanged();
-        DeleteTagCommand.NotifyCanExecuteChanged();
-    }
+        RefreshItems(); // Middle list follows the left list
+        AddItemCommand.NotifyCanExecuteChanged(); // Add Item needs a tag
+        RenameTagCommand.NotifyCanExecuteChanged(); // Rename Tag needs a tag
+        DeleteTagCommand.NotifyCanExecuteChanged(); // Delete Tag needs a tag
+    } // end OnSelectedTagChanged
 
-    partial void OnSelectedItemChanged(string? value)
+    partial void OnSelectedItemChanged(string? value) // Toolkit hook: list click or RefreshItems assignment
     {
-        UpdateSelectedValue(!_suppressClipboardCopy);
-        RenameItemCommand.NotifyCanExecuteChanged();
-        DeleteItemCommand.NotifyCanExecuteChanged();
-        EditValueCommand.NotifyCanExecuteChanged();
-        CopyValueCommand.NotifyCanExecuteChanged();
-        OpenUrlCommand.NotifyCanExecuteChanged();
-    }
+        UpdateSelectedValue(!_suppressClipboardCopy); // Copy unless we are rebuilding the list
+        RenameItemCommand.NotifyCanExecuteChanged(); // Needs an item
+        DeleteItemCommand.NotifyCanExecuteChanged(); // Needs an item
+        EditValueCommand.NotifyCanExecuteChanged(); // Needs an item
+        CopyValueCommand.NotifyCanExecuteChanged(); // Needs a value
+        OpenUrlCommand.NotifyCanExecuteChanged(); // Needs a URL-shaped value
+    } // end OnSelectedItemChanged
 
-    private bool HasSelectedTag() => !string.IsNullOrEmpty(SelectedTag);
-    private bool HasSelectedItem() => !string.IsNullOrEmpty(SelectedItem);
-    private bool HasSelectedValue() => !string.IsNullOrWhiteSpace(SelectedValue);
-    private bool CanOpenUrl() => IsWebUrl;
+    private bool HasSelectedTag() => !string.IsNullOrEmpty(SelectedTag); // CanExecute for tag commands
+    private bool HasSelectedItem() => !string.IsNullOrEmpty(SelectedItem); // CanExecute for item commands
+    private bool HasSelectedValue() => !string.IsNullOrWhiteSpace(SelectedValue); // CanExecute for Copy
+    private bool CanOpenUrl() => IsWebUrl; // CanExecute for Open URL
 
-    private void RefreshTags()
+    private void RefreshTags() // Rebuild the left ObservableCollection
     {
-        var current = SelectedTag;
-        Tags.Clear();
-        foreach (var tag in _store.GetTags())
+        var current = SelectedTag; // Try to restore selection
+        Tags.Clear(); // Notify the ListBox
+        foreach (var tag in _store.GetTags()) // Distinct tag names
         {
-            Tags.Add(tag);
-        }
+            Tags.Add(tag); // One left-list row
+        } // end foreach tag
 
-        SelectedTag = Tags.Contains(current ?? "") ? current : null;
-    }
+        SelectedTag = Tags.Contains(current ?? "") ? current : null; // Keep selection if the tag still exists
+    } // end RefreshTags
 
-    private void RefreshItems()
+    private void RefreshItems() // Rebuild the middle ObservableCollection
     {
-        var current = SelectedItem;
-        _suppressClipboardCopy = true;
-        Items.Clear();
-        if (!string.IsNullOrEmpty(SelectedTag))
+        var current = SelectedItem; // Try to restore selection
+        _suppressClipboardCopy = true; // Selecting during rebuild must not copy
+        Items.Clear(); // Notify the ListBox
+        if (!string.IsNullOrEmpty(SelectedTag)) // A tag is selected
         {
-            foreach (var item in _store.GetItemsForTag(SelectedTag))
+            foreach (var item in _store.GetItemsForTag(SelectedTag)) // Items under that tag
             {
-                Items.Add(item);
-            }
-        }
+                Items.Add(item); // One middle-list row
+            } // end foreach item
+        } // end if tag selected
 
-        SelectedItem = Items.Contains(current ?? "") ? current : null;
-        _suppressClipboardCopy = false;
-        UpdateSelectedValue(copyToClipboard: false);
-    }
+        SelectedItem = Items.Contains(current ?? "") ? current : null; // Keep selection if the item still exists
+        _suppressClipboardCopy = false; // Copy-on-select is allowed again
+        UpdateSelectedValue(copyToClipboard: false); // Refresh the right pane without copying
+    } // end RefreshItems
 
-    private void UpdateSelectedValue(bool copyToClipboard)
+    private void UpdateSelectedValue(bool copyToClipboard) // Right pane + optional OS clipboard
     {
-        SelectedValue = string.IsNullOrEmpty(SelectedTag) || string.IsNullOrEmpty(SelectedItem)
-            ? ""
-            : _store.GetValue(SelectedTag, SelectedItem);
-        IsWebUrl = ClipboardStore.IsWebUrl(SelectedValue);
-        CopyValueCommand.NotifyCanExecuteChanged();
-        OpenUrlCommand.NotifyCanExecuteChanged();
+        SelectedValue = string.IsNullOrEmpty(SelectedTag) || string.IsNullOrEmpty(SelectedItem) // Need both
+            ? "" // Nothing selected
+            : _store.GetValue(SelectedTag, SelectedItem); // Paste text for this pair
+        IsWebUrl = ClipboardStore.IsWebUrl(SelectedValue); // Open URL enablement
+        CopyValueCommand.NotifyCanExecuteChanged(); // Copy depends on SelectedValue
+        OpenUrlCommand.NotifyCanExecuteChanged(); // Open URL depends on IsWebUrl
 
-        if (copyToClipboard && !string.IsNullOrEmpty(SelectedValue))
+        if (copyToClipboard && !string.IsNullOrEmpty(SelectedValue)) // The toolkit moment: click item → clipboard
         {
-            _ = CopySelectedAsync(); // Fire-and-forget: selecting an item copies it (the toolkit moment).
-        }
-    }
+            _ = CopySelectedAsync(); // Fire-and-forget; do not block the UI thread on the clipboard API
+        } // end if copy
+    } // end UpdateSelectedValue
 
-    private Task CopySelectedAsync()
+    private Task CopySelectedAsync() // Shared by click-to-copy, Copy button, and Edit Value
     {
-        if (string.IsNullOrEmpty(SelectedValue))
+        if (string.IsNullOrEmpty(SelectedValue)) // Nothing to copy
         {
-            return Task.CompletedTask;
-        }
+            return Task.CompletedTask; // No-op task
+        } // end if empty
 
-        return _clipboard.SetTextAsync(SelectedValue);
-    }
-}
+        return _clipboard.SetTextAsync(SelectedValue); // Avalonia OS clipboard
+    } // end CopySelectedAsync
+} // end MainViewModel

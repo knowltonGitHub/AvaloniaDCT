@@ -1,12 +1,12 @@
-using Avalonia.Controls;
+using Avalonia.Controls; // Window
 
-namespace AvaloniaDCT.Views;
+namespace AvaloniaDCT.Views; // Code-behind for PreferencesWindow.axaml
 
 // Save/Cancel close the window via PreferencesViewModel.CloseRequested in DialogService.
-public partial class PreferencesWindow : Window
+public partial class PreferencesWindow : Window // partial: XAML compiler generates the other half
 {
-    public PreferencesWindow()
+    public PreferencesWindow() // DialogService does `new PreferencesWindow { DataContext = ... }`
     {
-        InitializeComponent();
-    }
-}
+        InitializeComponent(); // Load PreferencesWindow.axaml
+    } // end constructor
+} // end PreferencesWindow

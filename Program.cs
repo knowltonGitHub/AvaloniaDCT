@@ -1,26 +1,22 @@
-﻿using Avalonia;
-using System;
+﻿using Avalonia; // AppBuilder, Application, and other Avalonia core types
+using System; // STAThread and basic runtime types
 
-namespace AvaloniaDCT;
+namespace AvaloniaDCT; // Root namespace; matches RootNamespace in the csproj
 
-// Process entry point. Avalonia is not a WinForms Application.Run(new Form()) app:
-// you build an AppBuilder, then start a desktop lifetime that owns the message loop.
+// Process entry. Avalonia is not WinForms Application.Run(new Form()):
+// you configure an AppBuilder, then start a desktop lifetime that owns the message loop.
 class Program
 {
-    // STAThread is required on Windows so COM (clipboard, some shell verbs) works.
-    // Do not call Avalonia or UI APIs before StartWithClassicDesktopLifetime:
-    // the framework is not initialized yet.
-    [STAThread]
-    public static void Main(string[] args) => BuildAvaloniaApp()
-        .StartWithClassicDesktopLifetime(args);
+    [STAThread] // Windows COM (clipboard, some shell verbs) requires a single-threaded apartment
+    public static void Main(string[] args) => BuildAvaloniaApp() // OS calls this first
+        .StartWithClassicDesktopLifetime(args); // Create the desktop message loop (windows, mouse, keys)
 
-    // Shared by the running app and the Avalonia XAML designer / previewer.
-    public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()          // Use our App class (App.axaml / App.axaml.cs).
-            .UsePlatformDetect()                 // Win32 / macOS / Linux from one binary.
-#if DEBUG
-            .WithDeveloperTools()                // Avalonia DevTools (F12-style inspection) in Debug only.
-#endif
-            .WithInterFont()                     // Bundle Inter so the UI looks the same on every PC.
-            .LogToTrace();                       // Diagnostic log to Trace (Visual Studio Output window).
-}
+    public static AppBuilder BuildAvaloniaApp() // Shared by the running exe and the Avalonia XAML designer
+        => AppBuilder.Configure<App>() // Use our App class (App.axaml + App.axaml.cs)
+            .UsePlatformDetect() // Pick Win32 / macOS / Linux from one binary
+#if DEBUG // This extra chain runs only in Debug builds
+            .WithDeveloperTools() // Avalonia visual-tree inspector; stripped from Release
+#endif // End Debug-only DevTools
+            .WithInterFont() // Bundle the Inter font so the UI looks the same on every PC
+            .LogToTrace(); // Write Avalonia diagnostics to Trace (Visual Studio Output window)
+} // end Program

@@ -1,59 +1,57 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.ComponentModel; // ObservableObject, ObservableProperty
+using CommunityToolkit.Mvvm.Input; // RelayCommand
 
-namespace AvaloniaDCT.ViewModels;
+namespace AvaloniaDCT.ViewModels; // Shared dialog for Add Tag, Rename Tag, Add Item, Rename Item, Edit Value
 
-// Shared dialog for Add Tag, Rename Tag, Add Item, Rename Item, Edit Value.
-public partial class PromptViewModel : ObservableObject
+public partial class PromptViewModel : ObservableObject // partial for generated properties and commands
 {
-    [ObservableProperty]
-    private string _title = "";
+    [ObservableProperty] // Generates Title
+    private string _title = ""; // Window caption
 
-    [ObservableProperty]
-    private string _nameLabel = "Name";
+    [ObservableProperty] // Generates NameLabel
+    private string _nameLabel = "Name"; // Label above the name box
 
-    [ObservableProperty]
-    private string _name = "";
+    [ObservableProperty] // Generates Name
+    private string _name = ""; // Two-way bound to NameBox
 
-    [ObservableProperty]
-    private bool _showName = true;
+    [ObservableProperty] // Generates ShowName
+    private bool _showName = true; // Hides name controls for Edit Value
 
-    [ObservableProperty]
-    private string _valueLabel = "Value";
+    [ObservableProperty] // Generates ValueLabel
+    private string _valueLabel = "Value"; // Label above the value box
 
-    [ObservableProperty]
-    private string _value = "";
+    [ObservableProperty] // Generates Value
+    private string _value = ""; // Two-way bound to ValueBox
 
-    [ObservableProperty]
-    private bool _showValue;
+    [ObservableProperty] // Generates ShowValue
+    private bool _showValue; // Hides value controls for tag-only dialogs
 
-    [ObservableProperty]
-    private bool _valueIsMultiline;
+    [ObservableProperty] // Generates ValueIsMultiline
+    private bool _valueIsMultiline; // AcceptsReturn on ValueBox
 
-    // true = Save, false = Cancel. DialogService closes the window.
-    public event Action<bool>? CloseRequested;
+    public event Action<bool>? CloseRequested; // true = Save, false = Cancel; DialogService closes the window
 
-    public PromptViewModel(PromptRequest request)
+    public PromptViewModel(PromptRequest request) // Copy the snapshot onto bindable properties
     {
-        Title = request.Title;
-        NameLabel = request.NameLabel;
-        Name = request.Name;
-        ShowName = request.ShowName;
-        ValueLabel = request.ValueLabel;
-        Value = request.Value;
-        ShowValue = request.ShowValue;
-        ValueIsMultiline = request.ValueIsMultiline;
-    }
+        Title = request.Title; // Caption
+        NameLabel = request.NameLabel; // Name label
+        Name = request.Name; // Pre-fill (Rename)
+        ShowName = request.ShowName; // Visibility
+        ValueLabel = request.ValueLabel; // Value label
+        Value = request.Value; // Pre-fill (Edit Value)
+        ShowValue = request.ShowValue; // Visibility
+        ValueIsMultiline = request.ValueIsMultiline; // Multiline value box
+    } // end constructor
 
-    [RelayCommand]
-    private void Save()
+    [RelayCommand] // Becomes SaveCommand
+    private void Save() // Save button
     {
-        CloseRequested?.Invoke(true);
-    }
+        CloseRequested?.Invoke(true); // DialogService reads Name/Value after this
+    } // end Save
 
-    [RelayCommand]
-    private void Cancel()
+    [RelayCommand] // Becomes CancelCommand
+    private void Cancel() // Cancel button or Escape
     {
-        CloseRequested?.Invoke(false);
-    }
-}
+        CloseRequested?.Invoke(false); // DialogService returns null
+    } // end Cancel
+} // end PromptViewModel

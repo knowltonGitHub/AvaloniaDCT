@@ -117,89 +117,6 @@ public sealed class SqliteDatabase
         transaction.Commit();
     }
 
-    public UserPreferences LoadPreferences(int userId)
-    {
-        var preferences = new UserPreferences();
-        using var connection = OpenConnection();
-        using var command = connection.CreateCommand();
-        command.CommandText =
-            """
-            SELECT FromAddress, Host, Port, UserName, Password,
-                   SourceIP, SourcePort, DestinationIP, DestinationPort
-            FROM preferences
-            WHERE UserID = $userId
-            """;
-        command.Parameters.AddWithValue("$userId", userId);
-
-        using var reader = command.ExecuteReader();
-        if (reader.Read())
-        {
-            preferences.FromAddress = ReadString(reader, 0);
-            preferences.Host = ReadString(reader, 1);
-            preferences.Port = ReadString(reader, 2);
-            preferences.UserName = ReadString(reader, 3);
-            preferences.Password = ReadString(reader, 4);
-            preferences.SourceIp = ReadString(reader, 5);
-            preferences.SourcePort = ReadString(reader, 6);
-            preferences.DestinationIp = ReadString(reader, 7);
-            preferences.DestinationPort = ReadString(reader, 8);
-        }
-
-        return preferences;
-    }
-
-    public void SavePreferences(int userId, UserPreferences preferences)
-    {
-        using var connection = OpenConnection();
-        using var existsCommand = connection.CreateCommand();
-        existsCommand.CommandText = "SELECT COUNT(*) FROM preferences WHERE UserID = $userId";
-        existsCommand.Parameters.AddWithValue("$userId", userId);
-        var exists = Convert.ToInt32(existsCommand.ExecuteScalar()) > 0;
-
-        using var command = connection.CreateCommand();
-        if (exists)
-        {
-            command.CommandText =
-                """
-                UPDATE preferences SET
-                    FromAddress = $fromAddress,
-                    Host = $host,
-                    Port = $port,
-                    UserName = $userName,
-                    Password = $password,
-                    SourceIP = $sourceIp,
-                    SourcePort = $sourcePort,
-                    DestinationIP = $destinationIp,
-                    DestinationPort = $destinationPort
-                WHERE UserID = $userId
-                """;
-        }
-        else
-        {
-            command.CommandText =
-                """
-                INSERT INTO preferences (
-                    UserID, FromAddress, Host, Port, UserName, Password,
-                    SourceIP, SourcePort, DestinationIP, DestinationPort)
-                VALUES (
-                    $userId, $fromAddress, $host, $port, $userName, $password,
-                    $sourceIp, $sourcePort, $destinationIp, $destinationPort)
-                """;
-        }
-
-        command.Parameters.AddWithValue("$userId", userId);
-        command.Parameters.AddWithValue("$fromAddress", preferences.FromAddress);
-        command.Parameters.AddWithValue("$host", preferences.Host);
-        command.Parameters.AddWithValue("$port", preferences.Port);
-        command.Parameters.AddWithValue("$userName", preferences.UserName);
-        command.Parameters.AddWithValue("$password", preferences.Password);
-        command.Parameters.AddWithValue("$sourceIp", preferences.SourceIp);
-        command.Parameters.AddWithValue("$sourcePort", preferences.SourcePort);
-        command.Parameters.AddWithValue("$destinationIp", preferences.DestinationIp);
-        command.Parameters.AddWithValue("$destinationPort", preferences.DestinationPort);
-        command.ExecuteNonQuery();
-    }
-
     private UserSession? TryHardenedLogin(string userName, string password)
     {
         var firstRun = !File.Exists(_databasePath);
@@ -311,6 +228,8 @@ public sealed class SqliteDatabase
                 DestinationIP TEXT,
                 DestinationPort TEXT
             );
+            -- Email and home-network columns are unused. They stay so databases
+            -- created by the WinForms app, which already have these rows, still open.
             """;
         command.ExecuteNonQuery();
     }

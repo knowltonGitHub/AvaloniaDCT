@@ -1,5 +1,4 @@
 using Avalonia.Controls;
-using AvaloniaDCT.Models;
 using AvaloniaDCT.ViewModels;
 using AvaloniaDCT.Views;
 
@@ -57,14 +56,6 @@ public sealed class DialogService : IDialogService
             Name = viewModel.Name,
             Value = viewModel.Value
         };
-    }
-
-    public async Task ShowPreferencesAsync(SqliteDatabase database, UserSession user)
-    {
-        var viewModel = new PreferencesViewModel(database, user);
-        var window = new PreferencesWindow { DataContext = viewModel };
-        viewModel.CloseRequested += () => window.Close();
-        await window.ShowDialog(_owner);
     }
 
     public async Task ShowAboutAsync()

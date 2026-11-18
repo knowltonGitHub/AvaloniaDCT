@@ -68,12 +68,6 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task OpenPreferences()
-    {
-        await _dialogs.ShowPreferencesAsync(_database, _user);
-    }
-
-    [RelayCommand]
     private async Task OpenAbout()
     {
         await _dialogs.ShowAboutAsync();

@@ -7,7 +7,7 @@ public sealed class SqliteDatabase
 {
     private readonly AppSecurityProfile _profile;
     private readonly string _databasePath;
-    private string? _passphrase;
+    private string? _sqlCipherPassword;
 
     static SqliteDatabase()
     {
@@ -117,111 +117,152 @@ public sealed class SqliteDatabase
         transaction.Commit();
     }
 
-    public UserPreferences LoadPreferences(int userId)
-    {
-        var preferences = new UserPreferences();
-        using var connection = OpenConnection();
-        using var command = connection.CreateCommand();
-        command.CommandText =
-            """
-            SELECT FromAddress, Host, Port, UserName, Password,
-                   SourceIP, SourcePort, DestinationIP, DestinationPort
-            FROM preferences
-            WHERE UserID = $userId
-            """;
-        command.Parameters.AddWithValue("$userId", userId);
-
-        using var reader = command.ExecuteReader();
-        if (reader.Read())
-        {
-            preferences.FromAddress = ReadString(reader, 0);
-            preferences.Host = ReadString(reader, 1);
-            preferences.Port = ReadString(reader, 2);
-            preferences.UserName = ReadString(reader, 3);
-            preferences.Password = ReadString(reader, 4);
-            preferences.SourceIp = ReadString(reader, 5);
-            preferences.SourcePort = ReadString(reader, 6);
-            preferences.DestinationIp = ReadString(reader, 7);
-            preferences.DestinationPort = ReadString(reader, 8);
-        }
-
-        return preferences;
-    }
-
-    public void SavePreferences(int userId, UserPreferences preferences)
-    {
-        using var connection = OpenConnection();
-        using var existsCommand = connection.CreateCommand();
-        existsCommand.CommandText = "SELECT COUNT(*) FROM preferences WHERE UserID = $userId";
-        existsCommand.Parameters.AddWithValue("$userId", userId);
-        var exists = Convert.ToInt32(existsCommand.ExecuteScalar()) > 0;
-
-        using var command = connection.CreateCommand();
-        if (exists)
-        {
-            command.CommandText =
-                """
-                UPDATE preferences SET
-                    FromAddress = $fromAddress,
-                    Host = $host,
-                    Port = $port,
-                    UserName = $userName,
-                    Password = $password,
-                    SourceIP = $sourceIp,
-                    SourcePort = $sourcePort,
-                    DestinationIP = $destinationIp,
-                    DestinationPort = $destinationPort
-                WHERE UserID = $userId
-                """;
-        }
-        else
-        {
-            command.CommandText =
-                """
-                INSERT INTO preferences (
-                    UserID, FromAddress, Host, Port, UserName, Password,
-                    SourceIP, SourcePort, DestinationIP, DestinationPort)
-                VALUES (
-                    $userId, $fromAddress, $host, $port, $userName, $password,
-                    $sourceIp, $sourcePort, $destinationIp, $destinationPort)
-                """;
-        }
-
-        command.Parameters.AddWithValue("$userId", userId);
-        command.Parameters.AddWithValue("$fromAddress", preferences.FromAddress);
-        command.Parameters.AddWithValue("$host", preferences.Host);
-        command.Parameters.AddWithValue("$port", preferences.Port);
-        command.Parameters.AddWithValue("$userName", preferences.UserName);
-        command.Parameters.AddWithValue("$password", preferences.Password);
-        command.Parameters.AddWithValue("$sourceIp", preferences.SourceIp);
-        command.Parameters.AddWithValue("$sourcePort", preferences.SourcePort);
-        command.Parameters.AddWithValue("$destinationIp", preferences.DestinationIp);
-        command.Parameters.AddWithValue("$destinationPort", preferences.DestinationPort);
-        command.ExecuteNonQuery();
-    }
-
     private UserSession? TryHardenedLogin(string userName, string password)
     {
-        var firstRun = !File.Exists(_databasePath);
-        _passphrase = password;
+        // New databases are keyed with PBKDF2. Older files used the raw password
+        // as the SQLCipher passphrase and are backed up, then rekeyed, once.
+        if (!File.Exists(_databasePath))
+        {
+            TryDeleteFile(DatabaseKeySalt.GetPath(_databasePath));
+            return CreateHardenedDatabase(userName, password);
+        }
+
+        var salt = DatabaseKeySalt.TryRead(_databasePath);
+        if (salt is not null && TryUseDerivedKey(password, salt))
+        {
+            if (!salt.IsActive)
+            {
+                DatabaseKeySalt.Write(_databasePath, salt.Salt, salt.Iterations, active: true);
+            }
+
+            return FindUserByName(userName, password);
+        }
+
+        return MigrateFromPassphrase(userName, password, salt);
+    }
+
+    private UserSession CreateHardenedDatabase(string userName, string password)
+    {
+        var salt = SqlCipherKeyDeriver.CreateSalt();
+        var key = SqlCipherKeyDeriver.DeriveKey(password, salt, SqlCipherKeyDeriver.DefaultIterations);
+        DatabaseKeySalt.Write(_databasePath, salt, SqlCipherKeyDeriver.DefaultIterations, active: true);
+        _sqlCipherPassword = SqlCipherKeyDeriver.ToSqlCipherPassword(key);
 
         try
         {
             EnsureSchema();
+            return CreateUser(userName, password);
+        }
+        catch
+        {
+            SqliteConnection.ClearAllPools();
+            _sqlCipherPassword = null;
+            TryDeleteFile(_databasePath);
+            TryDeleteFile(DatabaseKeySalt.GetPath(_databasePath));
+            throw;
+        }
+    }
+
+    private bool TryUseDerivedKey(string password, DatabaseKeySalt.Record salt)
+    {
+        var key = SqlCipherKeyDeriver.DeriveKey(password, salt.Salt, salt.Iterations);
+        _sqlCipherPassword = SqlCipherKeyDeriver.ToSqlCipherPassword(key);
+        try
+        {
+            using var connection = OpenConnection();
+            return true;
         }
         catch (SqliteException ex) when (IsNotADatabase(ex))
         {
             SqliteConnection.ClearAllPools();
-            _passphrase = null;
+            _sqlCipherPassword = null;
+            return false;
+        }
+    }
+
+    private UserSession? MigrateFromPassphrase(string userName, string password, DatabaseKeySalt.Record? salt)
+    {
+        _sqlCipherPassword = password;
+        int rowCount;
+        try
+        {
+            using var connection = OpenConnection();
+            rowCount = TryCountTagRows(connection);
+        }
+        catch (SqliteException ex) when (IsNotADatabase(ex))
+        {
+            SqliteConnection.ClearAllPools();
+            _sqlCipherPassword = null;
             return null;
         }
 
-        if (firstRun)
+        if (!DatabaseBackup.TryCreateCopy(_databasePath, rowCount, "BEFORE_KDF_MIGRATION", copyKeySalt: false))
         {
-            return CreateUser(userName, password);
+            System.Diagnostics.Debug.WriteLine(
+                "Skipped SQLCipher key migration because the database could not be backed up.");
+            return FindUserByName(userName, password);
+        }
+
+        var iterations = salt?.Iterations ?? SqlCipherKeyDeriver.DefaultIterations;
+        var saltBytes = salt?.Salt ?? SqlCipherKeyDeriver.CreateSalt();
+        if (salt is not { IsActive: true })
+        {
+            DatabaseKeySalt.Write(_databasePath, saltBytes, iterations, active: false);
+        }
+
+        var derived = SqlCipherKeyDeriver.DeriveKey(password, saltBytes, iterations);
+        try
+        {
+            using (var connection = OpenConnection())
+            {
+                using var rekey = connection.CreateCommand();
+                rekey.CommandText = SqlCipherKeyDeriver.ToRekeyCommand(derived);
+                rekey.ExecuteNonQuery();
+                using var verify = connection.CreateCommand();
+                verify.CommandText = "SELECT COUNT(*) FROM sqlite_master";
+                verify.ExecuteScalar();
+            }
+
+            SqliteConnection.ClearAllPools();
+            DatabaseKeySalt.Write(_databasePath, saltBytes, iterations, active: true);
+            _sqlCipherPassword = SqlCipherKeyDeriver.ToSqlCipherPassword(derived);
+        }
+        catch
+        {
+            SqliteConnection.ClearAllPools();
+            _sqlCipherPassword = null;
+            throw;
         }
 
         return FindUserByName(userName, password);
+    }
+
+    private static int TryCountTagRows(SqliteConnection connection)
+    {
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM tagitemvaltable";
+            return Convert.ToInt32(command.ExecuteScalar());
+        }
+        catch (SqliteException)
+        {
+            return 0;
+        }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
     }
 
     private UserSession CreateUser(string userName, string password)
@@ -311,6 +352,8 @@ public sealed class SqliteDatabase
                 DestinationIP TEXT,
                 DestinationPort TEXT
             );
+            -- Email and home-network columns are unused. They stay so databases
+            -- created by the WinForms app, which already have these rows, still open.
             """;
         command.ExecuteNonQuery();
     }
@@ -347,8 +390,9 @@ public sealed class SqliteDatabase
 
         if (_profile.IsHardened)
         {
-            builder.Password = _passphrase ?? throw new InvalidOperationException(
-                "Hardened database access requires a cached passphrase.");
+            builder.Pooling = false;
+            builder.Password = _sqlCipherPassword ?? throw new InvalidOperationException(
+                "Hardened database access requires a cached key.");
         }
 
         var connection = new SqliteConnection(builder.ConnectionString);

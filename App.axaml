@@ -6,5 +6,46 @@
 
     <Application.Styles>
         <FluentTheme />
+        <!--
+          Fluent uses the same fill for enabled and disabled buttons, so the
+          two states read as the same grey chip. Disabled buttons drop that
+          fill and keep the theme's muted foreground and a hairline border.
+        -->
+        <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundDisabled}" />
+        </Style>
+        <!--
+          When Avalonia draws the title bar itself, the leftmost caption
+          button toggles full screen. Its 11px expand glyph reads as an
+          unlabeled caret. Name those caption buttons and enlarge the glyphs.
+          A desktop window manager may draw its own frame instead; that
+          frame's menu button is not part of this app.
+        -->
+        <Style Selector="WindowDrawnDecorations /template/ Button#PART_FullScreenButton">
+            <Setter Property="ToolTip.Tip" Value="Full screen" />
+        </Style>
+        <Style Selector="WindowDrawnDecorations /template/ Button#PART_PopoverFullScreenButton">
+            <Setter Property="ToolTip.Tip" Value="Exit full screen" />
+        </Style>
+        <Style Selector="WindowDrawnDecorations /template/ Button#PART_MinimizeButton">
+            <Setter Property="ToolTip.Tip" Value="Minimize" />
+        </Style>
+        <Style Selector="WindowDrawnDecorations /template/ Button#PART_MaximizeButton">
+            <Setter Property="ToolTip.Tip" Value="Maximize" />
+        </Style>
+        <Style Selector="WindowDrawnDecorations:maximized /template/ Button#PART_MaximizeButton">
+            <Setter Property="ToolTip.Tip" Value="Restore" />
+        </Style>
+        <Style Selector="WindowDrawnDecorations /template/ Button#PART_CloseButton">
+            <Setter Property="ToolTip.Tip" Value="Close" />
+        </Style>
+        <Style Selector="WindowDrawnDecorations /template/ Button#PART_PopoverCloseButton">
+            <Setter Property="ToolTip.Tip" Value="Close" />
+        </Style>
+        <Style Selector="WindowDrawnDecorations /template/ Button Viewbox">
+            <Setter Property="Width" Value="15" />
+        </Style>
     </Application.Styles>
 </Application>

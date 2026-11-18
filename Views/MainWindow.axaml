@@ -12,8 +12,6 @@
     <DockPanel>
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
-                <MenuItem Header="_Preferences" Command="{Binding OpenPreferencesCommand}" />
-                <Separator />
                 <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
             </MenuItem>
             <MenuItem Header="_Help">
@@ -87,11 +85,34 @@
                         <Button Content="Open URL" Command="{Binding OpenUrlCommand}" />
                         <Button Content="Edit" Command="{Binding EditValueCommand}" />
                     </StackPanel>
-                    <TextBox Text="{Binding SelectedValue}"
-                             IsReadOnly="True"
-                             AcceptsReturn="True"
-                             TextWrapping="Wrap"
-                             DoubleTapped="ValueBox_OnDoubleTapped" />
+                    <Grid>
+                        <TextBox Text="{Binding SelectedValue}"
+                                 IsReadOnly="True"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 DoubleTapped="ValueBox_OnDoubleTapped" />
+                        <Border HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                Margin="0,0,8,8"
+                                Padding="10,4"
+                                CornerRadius="12"
+                                Background="#E61B5E20"
+                                IsVisible="{Binding ShowCopiedFeedback}"
+                                Opacity="{Binding CopyFeedbackOpacity}"
+                                IsHitTestVisible="False"
+                                AutomationProperties.LiveSetting="Polite"
+                                AutomationProperties.Name="Copied">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.4" />
+                                </Transitions>
+                            </Border.Transitions>
+                            <TextBlock Text="Copied!"
+                                       Foreground="White"
+                                       FontSize="12"
+                                       FontWeight="SemiBold" />
+                        </Border>
+                    </Grid>
                 </DockPanel>
             </Border>
         </Grid>

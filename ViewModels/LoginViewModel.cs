@@ -48,7 +48,7 @@ public partial class LoginViewModel : ObservableObject
         if (firstHardenedRun)
         {
             Instruction =
-                "First launch: choose a user name and password. That creates the encrypted database. The password is the encryption key — remember it.";
+                "First launch: choose a user name and password. That creates the encrypted database. If you forget the password, the data cannot be recovered.";
             LoginButtonText = "Create account";
         }
     }

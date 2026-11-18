@@ -32,5 +32,9 @@
     <EmbeddedResource Remove="LEGACY DCT\**" />
     <AvaloniaResource Remove="LEGACY DCT\**" />
     <None Remove="LEGACY DCT\**" />
+    <Compile Remove="AvaloniaDCT.Tests\**" />
+    <EmbeddedResource Remove="AvaloniaDCT.Tests\**" />
+    <AvaloniaResource Remove="AvaloniaDCT.Tests\**" />
+    <None Remove="AvaloniaDCT.Tests\**" />
   </ItemGroup>
 </Project>

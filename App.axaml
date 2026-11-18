@@ -6,5 +6,15 @@
 
     <Application.Styles>
         <FluentTheme />
+        <!--
+          Fluent uses the same fill for enabled and disabled buttons, so the
+          two states read as the same grey chip. Disabled buttons drop that
+          fill and keep the theme's muted foreground and a hairline border.
+        -->
+        <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundDisabled}" />
+        </Style>
     </Application.Styles>
 </Application>

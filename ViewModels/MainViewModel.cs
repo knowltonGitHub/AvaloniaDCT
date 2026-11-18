@@ -31,6 +31,14 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isWebUrl;
 
+    [ObservableProperty]
+    private bool _showCopiedFeedback;
+
+    [ObservableProperty]
+    private double _copyFeedbackOpacity = 1;
+
+    private CancellationTokenSource? _copyFeedbackCts;
+
     public ObservableCollection<string> Tags { get; } = [];
     public ObservableCollection<string> Items { get; } = [];
 
@@ -381,13 +389,40 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private Task CopySelectedAsync()
+    private async Task CopySelectedAsync()
     {
         if (string.IsNullOrEmpty(SelectedValue))
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        return _clipboard.SetTextAsync(SelectedValue);
+        if (await _clipboard.SetTextAsync(SelectedValue))
+        {
+            await ShowCopiedFeedbackAsync();
+        }
+    }
+
+    private async Task ShowCopiedFeedbackAsync()
+    {
+        _copyFeedbackCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _copyFeedbackCts = cts;
+        var token = cts.Token;
+
+        CopyFeedbackOpacity = 1;
+        ShowCopiedFeedback = true;
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(1100), token);
+            CopyFeedbackOpacity = 0;
+            await Task.Delay(TimeSpan.FromMilliseconds(400), token);
+            ShowCopiedFeedback = false;
+            CopyFeedbackOpacity = 1;
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer copy restarted the confirmation.
+        }
     }
 }

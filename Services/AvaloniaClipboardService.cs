@@ -12,14 +12,15 @@ public sealed class AvaloniaClipboardService : IAppClipboard
         _window = window;
     }
 
-    public async Task SetTextAsync(string text)
+    public async Task<bool> SetTextAsync(string text)
     {
         var clipboard = _window.Clipboard;
         if (clipboard is null)
         {
-            return;
+            return false;
         }
 
         await clipboard.SetTextAsync(text);
+        return true;
     }
 }

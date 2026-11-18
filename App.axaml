@@ -16,5 +16,34 @@
             <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundDisabled}" />
         </Style>
+        <!--
+          Avalonia 12 draws its own title bar on Linux. The leftmost caption
+          button is fullscreen; its 11px expand glyph reads as an unlabeled
+          caret. Name the caption buttons and enlarge those glyphs.
+        -->
+        <Style Selector="WindowDrawnDecorations /template/ Button#PART_FullScreenButton">
+            <Setter Property="ToolTip.Tip" Value="Full screen" />
+        </Style>
+        <Style Selector="WindowDrawnDecorations /template/ Button#PART_PopoverFullScreenButton">
+            <Setter Property="ToolTip.Tip" Value="Exit full screen" />
+        </Style>
+        <Style Selector="WindowDrawnDecorations /template/ Button#PART_MinimizeButton">
+            <Setter Property="ToolTip.Tip" Value="Minimize" />
+        </Style>
+        <Style Selector="WindowDrawnDecorations /template/ Button#PART_MaximizeButton">
+            <Setter Property="ToolTip.Tip" Value="Maximize" />
+        </Style>
+        <Style Selector="WindowDrawnDecorations:maximized /template/ Button#PART_MaximizeButton">
+            <Setter Property="ToolTip.Tip" Value="Restore" />
+        </Style>
+        <Style Selector="WindowDrawnDecorations /template/ Button#PART_CloseButton">
+            <Setter Property="ToolTip.Tip" Value="Close" />
+        </Style>
+        <Style Selector="WindowDrawnDecorations /template/ Button#PART_PopoverCloseButton">
+            <Setter Property="ToolTip.Tip" Value="Close" />
+        </Style>
+        <Style Selector="WindowDrawnDecorations /template/ Button Viewbox">
+            <Setter Property="Width" Value="15" />
+        </Style>
     </Application.Styles>
 </Application>

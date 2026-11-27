@@ -1,3 +1,4 @@
+<!-- Login window. x:DataType enables compiled bindings to LoginViewModel (typos fail at build). -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:AvaloniaDCT.ViewModels"
@@ -9,31 +10,47 @@
         SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
         CanResize="False">
+    <!-- xmlns = Avalonia controls. xmlns:x = x:Class / x:DataType. xmlns:vm = ViewModels namespace. -->
+    <!-- x:Class pairs this file with LoginWindow.axaml.cs. x:DataType = compiled bindings to LoginViewModel. -->
+    <!-- Title comes from WindowTitle (includes DEVELOPMENT / HARDENED / RELEASE). -->
+    <!-- MinWidth/Width 380 = default client width; code-behind may widen for long titles. -->
+    <!-- SizeToContent Height = grow with instruction text. CenterScreen. CanResize false = dialog-like. -->
+
+    <!-- Enter in any field runs LoginCommand (generated from LoginViewModel.Login). -->
     <Window.KeyBindings>
         <KeyBinding Gesture="Enter" Command="{Binding LoginCommand}" />
     </Window.KeyBindings>
 
+    <!-- Vertical stack: title, instruction, fields, error, button. Margin 24, 12px between children. -->
     <StackPanel Margin="24" Spacing="12">
+        <!-- Static product name (not bound). -->
         <TextBlock Text="Desktop Clipboard Toolkit"
                    FontSize="20"
                    FontWeight="SemiBold" />
+        <!-- Instruction: "Sign in…" or first-run create-account text. Wrap + muted opacity. -->
         <TextBlock Text="{Binding Instruction}"
                    TextWrapping="Wrap"
                    Opacity="0.75" />
 
+        <!-- Label for the user-name field. -->
         <TextBlock Text="User name" />
+        <!-- Two-way UserName. Placeholder shows when empty (Release first run). -->
         <TextBox Text="{Binding UserName}"
                  PlaceholderText="User name" />
 
+        <!-- Label for the password field. -->
         <TextBlock Text="Password" />
+        <!-- PasswordChar masks the secret; the bound text is still the real password. -->
         <TextBox Text="{Binding Password}"
                  PasswordChar="*"
                  PlaceholderText="Password" />
 
+        <!-- Red error; hidden when ErrorMessage is empty (StringConverters.IsNotNullOrEmpty). -->
         <TextBlock Text="{Binding ErrorMessage}"
                    Foreground="#C62828"
                    IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
+        <!-- Login or Create account. Command is the same LoginCommand. -->
         <Button Content="{Binding LoginButtonText}"
                 HorizontalAlignment="Right"
                 MinWidth="100"

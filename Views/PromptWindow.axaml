@@ -1,3 +1,4 @@
+<!-- Add / Rename / Edit Value dialog. ShowInTaskbar=False: it is a child of MainWindow. -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:AvaloniaDCT.ViewModels"
@@ -9,19 +10,28 @@
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         ShowInTaskbar="False">
+    <!-- Compiled bindings to PromptViewModel. Title from the request. 460px wide, height fits content. -->
+    <!-- CenterOwner = over MainWindow. CanResize false. Not a separate taskbar button. -->
+
+    <!-- Escape = CancelCommand (same as the Cancel button). -->
     <Window.KeyBindings>
         <KeyBinding Gesture="Escape" Command="{Binding CancelCommand}" />
     </Window.KeyBindings>
 
+    <!-- Vertical form. -->
     <StackPanel Margin="20" Spacing="10">
+        <!-- Name label; hidden for Edit Value (ShowName false). -->
         <TextBlock Text="{Binding NameLabel}"
                    IsVisible="{Binding ShowName}" />
+        <!-- x:Name lets code-behind Focus() this box when the dialog opens. Two-way Name. -->
         <TextBox x:Name="NameBox"
                  Text="{Binding Name}"
                  IsVisible="{Binding ShowName}" />
 
+        <!-- Value label; hidden for tag-only dialogs (ShowValue false). -->
         <TextBlock Text="{Binding ValueLabel}"
                    IsVisible="{Binding ShowValue}" />
+        <!-- Value box. AcceptsReturn when ValueIsMultiline. MinHeight 100 for Add Item / Edit Value. -->
         <TextBox x:Name="ValueBox"
                  Text="{Binding Value}"
                  IsVisible="{Binding ShowValue}"
@@ -29,12 +39,15 @@
                  TextWrapping="Wrap"
                  MinHeight="100" />
 
+        <!-- Cancel / Save on the right. -->
         <StackPanel Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Spacing="8">
+            <!-- CancelCommand → CloseRequested(false). -->
             <Button Content="Cancel"
                     MinWidth="90"
                     Command="{Binding CancelCommand}" />
+            <!-- SaveCommand → CloseRequested(true); DialogService reads Name/Value. -->
             <Button Content="Save"
                     MinWidth="90"
                     Command="{Binding SaveCommand}" />

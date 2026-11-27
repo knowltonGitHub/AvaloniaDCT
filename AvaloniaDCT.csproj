@@ -1,40 +1,40 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-    <Version>1.0.0</Version>
-    <Product>Desktop Clipboard Toolkit</Product>
-    <Authors>knowlton</Authors>
-    <ApplicationTitle>Desktop Clipboard Toolkit</ApplicationTitle>
-    <RootNamespace>AvaloniaDCT</RootNamespace>
+    <OutputType>WinExe</OutputType> <!-- Windows GUI; no console window when double-clicked -->
+    <TargetFramework>net10.0</TargetFramework> <!-- .NET 10 runtime -->
+    <Nullable>enable</Nullable> <!-- Compiler warns on possible nulls -->
+    <ImplicitUsings>enable</ImplicitUsings> <!-- Global usings (System, System.IO, …) so files can omit them -->
+    <ApplicationManifest>app.manifest</ApplicationManifest> <!-- Windows 10 compatibility + DPI -->
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault> <!-- {Binding Foo} must exist on x:DataType or the build fails -->
+    <Version>1.0.0</Version> <!-- Assembly / installer version -->
+    <Product>Desktop Clipboard Toolkit</Product> <!-- Product name in file properties -->
+    <Authors>knowlton</Authors> <!-- Assembly author -->
+    <ApplicationTitle>Desktop Clipboard Toolkit</ApplicationTitle> <!-- Title used by packaging -->
+    <RootNamespace>AvaloniaDCT</RootNamespace> <!-- Default C# namespace -->
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="12.1.2" />
-    <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
-    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3">
-      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
-      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+    <PackageReference Include="Avalonia" Version="12.1.2" /> <!-- Core Avalonia UI library -->
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.2" /> <!-- Win32 / macOS / Linux desktop host -->
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" /> <!-- FluentTheme used in App.axaml -->
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" /> <!-- Inter font for WithInterFont() -->
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3"> <!-- DevTools support -->
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets> <!-- Do not copy DevTools into Release -->
+      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets> <!-- Hide DevTools from Release compile -->
     </PackageReference>
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.0" />
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.11" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" /> <!-- [ObservableProperty] and [RelayCommand] source generators -->
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.0" /> <!-- SQLite ADO.NET; Core = no vanilla sqlite3 -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.11" /> <!-- Native SQLCipher library paired with Core -->
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="LEGACY DCT\**" />
-    <EmbeddedResource Remove="LEGACY DCT\**" />
-    <AvaloniaResource Remove="LEGACY DCT\**" />
-    <None Remove="LEGACY DCT\**" />
-    <Compile Remove="AvaloniaDCT.Tests\**" />
-    <EmbeddedResource Remove="AvaloniaDCT.Tests\**" />
-    <AvaloniaResource Remove="AvaloniaDCT.Tests\**" />
-    <None Remove="AvaloniaDCT.Tests\**" />
+    <Compile Remove="LEGACY DCT\**" /> <!-- Keep the WinForms snapshot in the repo but out of this compile -->
+    <EmbeddedResource Remove="LEGACY DCT\**" /> <!-- Do not embed anything from LEGACY DCT -->
+    <AvaloniaResource Remove="LEGACY DCT\**" /> <!-- Do not treat WinForms files as Avalonia resources -->
+    <None Remove="LEGACY DCT\**" /> <!-- Do not copy LEGACY files to output -->
+    <Compile Remove="AvaloniaDCT.Tests\**" /> <!-- The test project references this one; do not compile tests into the app -->
+    <EmbeddedResource Remove="AvaloniaDCT.Tests\**" /> <!-- Do not embed test files -->
+    <AvaloniaResource Remove="AvaloniaDCT.Tests\**" /> <!-- Do not treat tests as Avalonia resources -->
+    <None Remove="AvaloniaDCT.Tests\**" /> <!-- Do not copy tests to the app output -->
   </ItemGroup>
 </Project>

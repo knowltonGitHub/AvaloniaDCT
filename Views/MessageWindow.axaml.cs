@@ -1,11 +1,12 @@
-using Avalonia.Controls;
+using Avalonia.Controls; // Window
 
-namespace AvaloniaDCT.Views;
+namespace AvaloniaDCT.Views; // Code-behind for MessageWindow.axaml
 
-public partial class MessageWindow : Window
+// No extra logic: Close is driven by MessageViewModel.CloseRequested in DialogService.
+public partial class MessageWindow : Window // partial: XAML compiler generates the other half
 {
-    public MessageWindow()
+    public MessageWindow() // DialogService does `new MessageWindow { DataContext = ... }`
     {
-        InitializeComponent();
-    }
-}
+        InitializeComponent(); // Load MessageWindow.axaml
+    } // end constructor
+} // end MessageWindow

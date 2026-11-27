@@ -1,10 +1,15 @@
+<!-- Application-wide XAML (not a window). Same role as WPF App.xaml: theme and global styles. Code-behind is App.axaml.cs. -->
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="AvaloniaDCT.App"
              RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+    <!-- xmlns = Avalonia control namespace (Window, Button, …). -->
+    <!-- xmlns:x = x:Class so this file pairs with App.axaml.cs. -->
+    <!-- x:Class = code-behind type AvaloniaDCT.App. -->
+    <!-- RequestedThemeVariant Default = follow Windows light/dark. Use Light or Dark to force one. -->
 
     <Application.Styles>
+        <!-- FluentTheme is Avalonia's built-in Fluent look for buttons, text boxes, lists. -->
         <FluentTheme />
         <!--
           Fluent uses the same fill for enabled and disabled buttons, so the
@@ -12,8 +17,11 @@
           fill and keep the theme's muted foreground and a hairline border.
         -->
         <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <!-- No grey fill when the command CanExecute is false. -->
             <Setter Property="Background" Value="Transparent" />
+            <!-- Hairline so the control still reads as a button. -->
             <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" />
+            <!-- Theme muted text, not the enabled foreground. -->
             <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundDisabled}" />
         </Style>
         <!--
@@ -24,27 +32,35 @@
           frame's menu button is not part of this app.
         -->
         <Style Selector="WindowDrawnDecorations /template/ Button#PART_FullScreenButton">
+            <!-- Tooltip for the expand control. -->
             <Setter Property="ToolTip.Tip" Value="Full screen" />
         </Style>
         <Style Selector="WindowDrawnDecorations /template/ Button#PART_PopoverFullScreenButton">
+            <!-- Same control while already full screen. -->
             <Setter Property="ToolTip.Tip" Value="Exit full screen" />
         </Style>
         <Style Selector="WindowDrawnDecorations /template/ Button#PART_MinimizeButton">
+            <!-- Caption minimize. -->
             <Setter Property="ToolTip.Tip" Value="Minimize" />
         </Style>
         <Style Selector="WindowDrawnDecorations /template/ Button#PART_MaximizeButton">
+            <!-- Caption maximize when the window is restored. -->
             <Setter Property="ToolTip.Tip" Value="Maximize" />
         </Style>
         <Style Selector="WindowDrawnDecorations:maximized /template/ Button#PART_MaximizeButton">
+            <!-- Same button after maximize. -->
             <Setter Property="ToolTip.Tip" Value="Restore" />
         </Style>
         <Style Selector="WindowDrawnDecorations /template/ Button#PART_CloseButton">
+            <!-- Caption close. MainWindow.Closing still persists and drops chat. -->
             <Setter Property="ToolTip.Tip" Value="Close" />
         </Style>
         <Style Selector="WindowDrawnDecorations /template/ Button#PART_PopoverCloseButton">
+            <!-- Close on the full-screen popover chrome. -->
             <Setter Property="ToolTip.Tip" Value="Close" />
         </Style>
         <Style Selector="WindowDrawnDecorations /template/ Button Viewbox">
+            <!-- 15px instead of the 11px glyph that looked like a caret. -->
             <Setter Property="Width" Value="15" />
         </Style>
     </Application.Styles>

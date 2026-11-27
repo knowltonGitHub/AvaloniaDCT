@@ -1,34 +1,34 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.ComponentModel; // ObservableObject
+using CommunityToolkit.Mvvm.Input; // RelayCommand
 
-namespace AvaloniaDCT.ViewModels;
+namespace AvaloniaDCT.ViewModels; // OK message or Cancel/Delete confirm
 
-public partial class MessageViewModel : ObservableObject
+public partial class MessageViewModel : ObservableObject // partial for generated AcceptCommand / CancelCommand
 {
-    public string Title { get; }
-    public string Message { get; }
-    public bool IsConfirm { get; }
-    public string AcceptText { get; }
+    public string Title { get; } // Window caption
+    public string Message { get; } // Body text
+    public bool IsConfirm { get; } // true = show Cancel and label Accept "Delete"
+    public string AcceptText { get; } // "OK" or "Delete"
 
-    public event Action<bool>? CloseRequested;
+    public event Action<bool>? CloseRequested; // DialogService closes the window; true = accept
 
-    public MessageViewModel(string title, string message, bool isConfirm)
+    public MessageViewModel(string title, string message, bool isConfirm) // DialogService constructs this
     {
-        Title = title;
-        Message = message;
-        IsConfirm = isConfirm;
-        AcceptText = isConfirm ? "Delete" : "OK";
-    }
+        Title = title; // Caption
+        Message = message; // Body
+        IsConfirm = isConfirm; // Drives Cancel visibility
+        AcceptText = isConfirm ? "Delete" : "OK"; // Button label
+    } // end constructor
 
-    [RelayCommand]
-    private void Accept()
+    [RelayCommand] // Becomes AcceptCommand
+    private void Accept() // OK or Delete
     {
-        CloseRequested?.Invoke(true);
-    }
+        CloseRequested?.Invoke(true); // Confirmed
+    } // end Accept
 
-    [RelayCommand]
-    private void Cancel()
+    [RelayCommand] // Becomes CancelCommand
+    private void Cancel() // Cancel button
     {
-        CloseRequested?.Invoke(false);
-    }
-}
+        CloseRequested?.Invoke(false); // Not confirmed
+    } // end Cancel
+} // end MessageViewModel

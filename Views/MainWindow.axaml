@@ -1,3 +1,4 @@
+<!-- Main UI: menu, then Clipboard tab (tags/items/value) and Chat tab (LAN group room). -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:AvaloniaDCT.ViewModels"
@@ -9,112 +10,246 @@
         MinWidth="800"
         MinHeight="420"
         WindowStartupLocation="CenterScreen">
+    <!-- xmlns / x:Class / x:DataType: compiled bindings to MainViewModel. Title includes user + mode. -->
+    <!-- 1100x560 default; min 800x420 so the three columns stay usable. Centered on the screen. -->
+
+    <!-- DockPanel: menu on top, tabs fill the rest. -->
     <DockPanel>
+        <!-- Underscore in Header = Alt mnemonic (Alt+F, Alt+H). Dock Top so the tabs get leftover space. -->
         <Menu DockPanel.Dock="Top">
+            <!-- File menu. Preferences lived here until unused email and home-network settings were removed. -->
             <MenuItem Header="_File">
+                <!-- File > Exit → ExitCommand (closes MainWindow, which persists and drops LAN chat). -->
                 <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
             </MenuItem>
+            <!-- Help menu. -->
             <MenuItem Header="_Help">
+                <!-- Help > About → OpenAboutCommand. -->
                 <MenuItem Header="_About" Command="{Binding OpenAboutCommand}" />
             </MenuItem>
         </Menu>
 
-        <Grid Margin="12" ColumnDefinitions="* * *" ColumnSpacing="12">
-            <Border BorderBrush="#66808080"
-                    BorderThickness="1"
-                    CornerRadius="4"
-                    Padding="10">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top"
-                               Text="Tags"
-                               FontWeight="SemiBold"
-                               Margin="0,0,0,8" />
-                    <StackPanel DockPanel.Dock="Bottom"
-                                Orientation="Horizontal"
-                                Spacing="8"
-                                Margin="0,8,0,0">
-                        <Button Content="Add" Command="{Binding AddTagCommand}" />
-                        <Button Content="Rename" Command="{Binding RenameTagCommand}" />
-                        <Button Content="Delete" Command="{Binding DeleteTagCommand}" />
-                    </StackPanel>
-                    <ListBox ItemsSource="{Binding Tags}"
-                             SelectedItem="{Binding SelectedTag}"
-                             DoubleTapped="TagsList_OnDoubleTapped" />
-                </DockPanel>
-            </Border>
+        <!-- Clipboard is the original three-column screen. Chat is the in-app LAN group room. -->
+        <TabControl Margin="8">
+            <TabItem Header="Clipboard">
+                <!-- Three equal columns. * * * means share leftover width. -->
+                <Grid Margin="4" ColumnDefinitions="* * *" ColumnSpacing="12">
+                    <!-- Column 0: Tags. Semi-transparent gray border, 4px corners, 10px padding. -->
+                    <Border BorderBrush="#66808080"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="10">
+                        <!-- Title top, buttons bottom, list fills the middle. -->
+                        <DockPanel>
+                            <!-- "Tags" heading. -->
+                            <TextBlock DockPanel.Dock="Top"
+                                       Text="Tags"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,0,8" />
+                            <!-- Add / Rename / Delete for tags. Horizontal row at the bottom. -->
+                            <StackPanel DockPanel.Dock="Bottom"
+                                        Orientation="Horizontal"
+                                        Spacing="8"
+                                        Margin="0,8,0,0">
+                                <!-- AddTagCommand — always enabled. -->
+                                <Button Content="Add" Command="{Binding AddTagCommand}" />
+                                <!-- RenameTagCommand — CanExecute HasSelectedTag. -->
+                                <Button Content="Rename" Command="{Binding RenameTagCommand}" />
+                                <!-- DeleteTagCommand — CanExecute HasSelectedTag. -->
+                                <Button Content="Delete" Command="{Binding DeleteTagCommand}" />
+                            </StackPanel>
+                            <!-- ItemsSource = Tags. SelectedItem two-way sets MainViewModel.SelectedTag. Double-tap = rename. -->
+                            <ListBox ItemsSource="{Binding Tags}"
+                                     SelectedItem="{Binding SelectedTag}"
+                                     DoubleTapped="TagsList_OnDoubleTapped" />
+                        </DockPanel>
+                    </Border>
 
-            <Border Grid.Column="1"
-                    BorderBrush="#66808080"
-                    BorderThickness="1"
-                    CornerRadius="4"
-                    Padding="10">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top"
-                               Text="Items"
-                               FontWeight="SemiBold"
-                               Margin="0,0,0,8" />
-                    <StackPanel DockPanel.Dock="Bottom"
-                                Orientation="Horizontal"
-                                Spacing="8"
-                                Margin="0,8,0,0">
-                        <Button Content="Add" Command="{Binding AddItemCommand}" />
-                        <Button Content="Rename" Command="{Binding RenameItemCommand}" />
-                        <Button Content="Delete" Command="{Binding DeleteItemCommand}" />
-                    </StackPanel>
-                    <ListBox ItemsSource="{Binding Items}"
-                             SelectedItem="{Binding SelectedItem}"
-                             DoubleTapped="ItemsList_OnDoubleTapped" />
-                </DockPanel>
-            </Border>
+                    <!-- Column 1: Items. Grid.Column="1" places it in the middle star column. -->
+                    <Border Grid.Column="1"
+                            BorderBrush="#66808080"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="10">
+                        <DockPanel>
+                            <!-- "Items" heading. -->
+                            <TextBlock DockPanel.Dock="Top"
+                                       Text="Items"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,0,8" />
+                            <!-- Add / Rename / Delete for items. -->
+                            <StackPanel DockPanel.Dock="Bottom"
+                                        Orientation="Horizontal"
+                                        Spacing="8"
+                                        Margin="0,8,0,0">
+                                <!-- AddItemCommand — needs a selected tag. -->
+                                <Button Content="Add" Command="{Binding AddItemCommand}" />
+                                <!-- RenameItemCommand — needs a selected item. -->
+                                <Button Content="Rename" Command="{Binding RenameItemCommand}" />
+                                <!-- DeleteItemCommand — needs a selected item. -->
+                                <Button Content="Delete" Command="{Binding DeleteItemCommand}" />
+                            </StackPanel>
+                            <!-- ItemsSource = Items. SelectedItem two-way = SelectedItem (copies value). Double-tap = rename. -->
+                            <ListBox ItemsSource="{Binding Items}"
+                                     SelectedItem="{Binding SelectedItem}"
+                                     DoubleTapped="ItemsList_OnDoubleTapped" />
+                        </DockPanel>
+                    </Border>
 
-            <Border Grid.Column="2"
-                    BorderBrush="#66808080"
-                    BorderThickness="1"
-                    CornerRadius="4"
-                    Padding="10">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top"
-                               Text="Value"
-                               FontWeight="SemiBold"
-                               Margin="0,0,0,8" />
-                    <StackPanel DockPanel.Dock="Bottom"
-                                Orientation="Horizontal"
-                                Spacing="8"
-                                Margin="0,8,0,0">
-                        <Button Content="Copy" Command="{Binding CopyValueCommand}" />
-                        <Button Content="Open URL" Command="{Binding OpenUrlCommand}" />
-                        <Button Content="Edit" Command="{Binding EditValueCommand}" />
-                    </StackPanel>
-                    <Grid>
-                        <TextBox Text="{Binding SelectedValue}"
-                                 IsReadOnly="True"
-                                 AcceptsReturn="True"
-                                 TextWrapping="Wrap"
-                                 DoubleTapped="ValueBox_OnDoubleTapped" />
-                        <Border HorizontalAlignment="Right"
-                                VerticalAlignment="Bottom"
-                                Margin="0,0,8,8"
-                                Padding="10,4"
-                                CornerRadius="12"
-                                Background="#E61B5E20"
-                                IsVisible="{Binding ShowCopiedFeedback}"
-                                Opacity="{Binding CopyFeedbackOpacity}"
-                                IsHitTestVisible="False"
-                                AutomationProperties.LiveSetting="Polite"
-                                AutomationProperties.Name="Copied">
-                            <Border.Transitions>
-                                <Transitions>
-                                    <DoubleTransition Property="Opacity" Duration="0:0:0.4" />
-                                </Transitions>
-                            </Border.Transitions>
-                            <TextBlock Text="Copied!"
-                                       Foreground="White"
-                                       FontSize="12"
-                                       FontWeight="SemiBold" />
-                        </Border>
-                    </Grid>
-                </DockPanel>
-            </Border>
-        </Grid>
+                    <!-- Column 2: Value pane. Selecting an item copies it and shows a fading Copied badge. -->
+                    <Border Grid.Column="2"
+                            BorderBrush="#66808080"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="10">
+                        <DockPanel>
+                            <!-- "Value" heading. -->
+                            <TextBlock DockPanel.Dock="Top"
+                                       Text="Value"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,0,8" />
+                            <!-- Copy / Open URL / Edit. -->
+                            <StackPanel DockPanel.Dock="Bottom"
+                                        Orientation="Horizontal"
+                                        Spacing="8"
+                                        Margin="0,8,0,0">
+                                <!-- CopyValueCommand — needs a non-empty value. -->
+                                <Button Content="Copy" Command="{Binding CopyValueCommand}" />
+                                <!-- OpenUrlCommand — CanExecute IsWebUrl. -->
+                                <Button Content="Open URL" Command="{Binding OpenUrlCommand}" />
+                                <!-- EditValueCommand — needs a selected item. -->
+                                <Button Content="Edit" Command="{Binding EditValueCommand}" />
+                            </StackPanel>
+                            <!-- Grid stacks the read-only value and the Copied badge in the same cell. -->
+                            <Grid>
+                                <!-- Read-only paste preview. Wrap + AcceptsReturn for multi-line values. Double-tap = edit. -->
+                                <TextBox Text="{Binding SelectedValue}"
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         DoubleTapped="ValueBox_OnDoubleTapped" />
+                                <!-- Badge is not hit-testable so clicks still reach the TextBox. Opacity animates the fade. -->
+                                <Border HorizontalAlignment="Right"
+                                        VerticalAlignment="Bottom"
+                                        Margin="0,0,8,8"
+                                        Padding="10,4"
+                                        CornerRadius="12"
+                                        Background="#E61B5E20"
+                                        IsVisible="{Binding ShowCopiedFeedback}"
+                                        Opacity="{Binding CopyFeedbackOpacity}"
+                                        IsHitTestVisible="False"
+                                        AutomationProperties.LiveSetting="Polite"
+                                        AutomationProperties.Name="Copied">
+                                    <!-- 400ms fade matches the delay in ShowCopiedFeedbackAsync. -->
+                                    <Border.Transitions>
+                                        <Transitions>
+                                            <DoubleTransition Property="Opacity" Duration="0:0:0.4" />
+                                        </Transitions>
+                                    </Border.Transitions>
+                                    <!-- Screen reader name is on the Border; this is the visible word. -->
+                                    <TextBlock Text="Copied!"
+                                               Foreground="White"
+                                               FontSize="12"
+                                               FontWeight="SemiBold" />
+                                </Border>
+                            </Grid>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ContentTemplate so Chat TextBoxes bind to ChatViewModel (nested Chat.HostAddress was showing empty). -->
+            <TabItem Header="Chat">
+                <!-- Content is MainViewModel.Chat; the template's DataContext is ChatViewModel. -->
+                <ContentControl Content="{Binding Chat}">
+                    <ContentControl.ContentTemplate>
+                        <!-- Compiled bindings for the chat tab. x:DataType must be ChatViewModel, not MainViewModel. -->
+                        <DataTemplate x:DataType="vm:ChatViewModel">
+                            <DockPanel Margin="8">
+                                <!-- Status + this PC's LAN address so joiners know what to type. -->
+                                <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,8">
+                                    <!-- Hosting / joined / idle. -->
+                                    <TextBlock Text="{Binding StatusText}"
+                                               TextWrapping="Wrap" />
+                                    <!-- This PC's IPv4 hint. -->
+                                    <TextBlock Text="{Binding ListenHint}"
+                                               Opacity="0.75" />
+                                </StackPanel>
+
+                                <!-- Host / Join / Disconnect row. TwoWay so Auto fill appears in the boxes. -->
+                                <StackPanel DockPanel.Dock="Top"
+                                            Orientation="Horizontal"
+                                            Spacing="8"
+                                            Margin="0,0,0,8">
+                                    <!-- Label for the host address box. -->
+                                    <TextBlock Text="Host IP" VerticalAlignment="Center" />
+                                    <!-- IP of the PC that clicked Host. Joiners type it; Auto fill starts as this PC. -->
+                                    <TextBox Text="{Binding HostAddress, Mode=TwoWay}"
+                                             Width="160"
+                                             PlaceholderText="192.168.1.10" />
+                                    <!-- Label for the shared TCP port. -->
+                                    <TextBlock Text="Port" VerticalAlignment="Center" />
+                                    <!-- Default 27000. Only the Host binds it. -->
+                                    <TextBox Text="{Binding PortText, Mode=TwoWay}"
+                                             Width="70" />
+                                    <!-- Restore this PC's IPv4 and port 27000. Disabled while connected. -->
+                                    <Button Content="Auto fill" Command="{Binding AutoFillCommand}" />
+                                    <!-- This window listens. Disabled while connected. -->
+                                    <Button Content="Host" Command="{Binding HostCommand}" />
+                                    <!-- Connect to Host IP. Disabled while connected. -->
+                                    <Button Content="Join" Command="{Binding JoinCommand}" />
+                                    <!-- Close sockets and clear the transcript. -->
+                                    <Button Content="Disconnect" Command="{Binding DisconnectCommand}" />
+                                </StackPanel>
+
+                                <!-- Compose box. Enter sends (AcceptsReturn stays false). -->
+                                <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                                    <!-- SendCommand — needs a session and non-empty draft. -->
+                                    <Button DockPanel.Dock="Right"
+                                            Content="Send"
+                                            MinWidth="90"
+                                            Margin="8,0,0,0"
+                                            Command="{Binding SendCommand}" />
+                                    <!-- DraftMessage. Enter is a KeyBinding because the box is single-line. -->
+                                    <TextBox Text="{Binding DraftMessage, Mode=TwoWay}"
+                                             PlaceholderText="Message the group"
+                                             MaxLength="2000">
+                                        <!-- Enter sends; it does not insert a newline. -->
+                                        <TextBox.KeyBindings>
+                                            <KeyBinding Gesture="Enter" Command="{Binding SendCommand}" />
+                                        </TextBox.KeyBindings>
+                                    </TextBox>
+                                </DockPanel>
+
+                                <!-- Who is online = connected DCT windows. -->
+                                <Border DockPanel.Dock="Right"
+                                        Width="200"
+                                        Margin="8,0,0,0"
+                                        BorderBrush="#66808080"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Padding="8">
+                                    <DockPanel>
+                                        <!-- Presence heading. -->
+                                        <TextBlock DockPanel.Dock="Top"
+                                                   Text="Who is online"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,0,0,8" />
+                                        <!-- OnlineNames. Cleared on Disconnect. -->
+                                        <ListBox ItemsSource="{Binding OnlineNames}" />
+                                    </DockPanel>
+                                </Border>
+
+                                <!-- In-memory transcript; cleared on Disconnect. -->
+                                <TextBox Text="{Binding Transcript, Mode=TwoWay}"
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap" />
+                            </DockPanel>
+                        </DataTemplate>
+                    </ContentControl.ContentTemplate>
+                </ContentControl>
+            </TabItem>
+        </TabControl>
     </DockPanel>
 </Window>

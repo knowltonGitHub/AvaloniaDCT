@@ -1,3 +1,4 @@
+<!-- OK-only message or Cancel/Delete confirm. Cancel is hidden when IsConfirm is false. -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:AvaloniaDCT.ViewModels"
@@ -9,16 +10,24 @@
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         ShowInTaskbar="False">
+    <!-- Compiled bindings to MessageViewModel. Caption from Title. Height fits the message. -->
+    <!-- CenterOwner, not resizable, not on the taskbar. -->
+
+    <!-- Body + buttons. -->
     <StackPanel Margin="20" Spacing="16">
+        <!-- Message text wraps so long confirmations stay readable. -->
         <TextBlock Text="{Binding Message}"
                    TextWrapping="Wrap" />
+        <!-- Cancel (optional) + OK/Delete on the right. -->
         <StackPanel Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Spacing="8">
+            <!-- Hidden for OK-only messages. CancelCommand → CloseRequested(false). -->
             <Button Content="Cancel"
                     MinWidth="90"
                     IsVisible="{Binding IsConfirm}"
                     Command="{Binding CancelCommand}" />
+            <!-- AcceptText is "OK" or "Delete". AcceptCommand → CloseRequested(true). -->
             <Button Content="{Binding AcceptText}"
                     MinWidth="90"
                     Command="{Binding AcceptCommand}" />

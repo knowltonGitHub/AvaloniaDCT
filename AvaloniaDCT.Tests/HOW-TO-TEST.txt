@@ -1,0 +1,45 @@
+FROM:        Cursor
+TO:          You
+DATE:        2026-11-27
+SUBJECT:     How to test AvaloniaDCT
+
+
+WHERE THE TESTS LIVE
+------------------------------------------------------------------------------
+
+  AvaloniaDCT.sln                      Visual Studio / `dotnet test` solution
+  AvaloniaDCT.csproj                   The desktop app (not tests)
+  AvaloniaDCT.Tests\                   Sibling test project (this folder)
+      AvaloniaDCT.Tests.csproj         xUnit, references the app project
+      *Tests.cs                        One file per area under test
+
+This is the usual .NET layout: app and tests are two projects in one
+solution. Tests are not a second copy of the app and are not under LEGACY DCT.
+
+
+WHAT THEY COVER
+------------------------------------------------------------------------------
+
+  ClipboardStore       Tags / items / values in memory (the main screen)
+  SqliteDatabase       Login, clipboard save, SQLCipher, legacy migration
+  SqlCipherKeyDeriver  PBKDF2 key used as the SQLCipher raw key
+  DatabaseKeySalt      CBDB.db.kdf sidecar
+  DatabaseBackup       Sidecar copies of the database
+  LanChatService       Host + Join on 127.0.0.1 (no UI)
+
+They do not click Avalonia windows. That would need a UI test runner.
+These tests check the services the windows call.
+
+
+HOW TO RUN
+------------------------------------------------------------------------------
+
+From the repo root:
+
+  dotnet test
+
+Or open AvaloniaDCT.sln in Visual Studio and use Test Explorer.
+
+Filter one class:
+
+  dotnet test --filter ClipboardStoreTests

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework> <!-- Same runtime as the app -->
+    <Nullable>enable</Nullable> <!-- Match the app's null checks -->
+    <ImplicitUsings>enable</ImplicitUsings> <!-- System, System.IO, and so on -->
+    <IsPackable>false</IsPackable> <!-- This project is not a NuGet package -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.12.0" /> <!-- dotnet test host -->
+    <PackageReference Include="xunit" Version="2.9.3" /> <!-- [Fact] and Assert -->
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" /> <!-- Discover tests in Visual Studio and dotnet test -->
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.0" /> <!-- Open fixture databases directly -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.11" /> <!-- Same native SQLCipher as the app -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AvaloniaDCT.csproj" /> <!-- App services under test (no Windows, no XAML) -->
+  </ItemGroup>
+</Project>

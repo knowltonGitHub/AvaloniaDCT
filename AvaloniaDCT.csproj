@@ -32,5 +32,9 @@
     <EmbeddedResource Remove="LEGACY DCT\**" /> <!-- Do not embed anything from LEGACY DCT -->
     <AvaloniaResource Remove="LEGACY DCT\**" /> <!-- Do not treat WinForms files as Avalonia resources -->
     <None Remove="LEGACY DCT\**" /> <!-- Do not copy LEGACY files to output -->
+    <Compile Remove="AvaloniaDCT.Tests\**" /> <!-- The test project references this one; do not compile tests into the app -->
+    <EmbeddedResource Remove="AvaloniaDCT.Tests\**" /> <!-- Do not embed test files -->
+    <AvaloniaResource Remove="AvaloniaDCT.Tests\**" /> <!-- Do not treat tests as Avalonia resources -->
+    <None Remove="AvaloniaDCT.Tests\**" /> <!-- Do not copy tests to the app output -->
   </ItemGroup>
 </Project>

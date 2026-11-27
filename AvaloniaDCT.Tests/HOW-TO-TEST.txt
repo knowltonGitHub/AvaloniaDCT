@@ -21,7 +21,7 @@ WHAT THEY COVER
 ------------------------------------------------------------------------------
 
   ClipboardStore       Tags / items / values in memory (the main screen)
-  SqliteDatabase       Login, clipboard save, SQLCipher, legacy migration
+  SqliteDatabase       Login, clipboard save, SQLCipher, Preferences load/save
   SqlCipherKeyDeriver  PBKDF2 key used as the SQLCipher raw key
   DatabaseKeySalt      CBDB.db.kdf sidecar
   DatabaseBackup       Sidecar copies of the database

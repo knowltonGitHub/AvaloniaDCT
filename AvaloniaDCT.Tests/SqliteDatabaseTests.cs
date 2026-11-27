@@ -1,8 +1,8 @@
-using AvaloniaDCT.Models; // TagItemValue
-using AvaloniaDCT.Services; // SqliteDatabase, key salt, key deriver, security profile
+using AvaloniaDCT.Models; // TagItemValue, UserPreferences
+using AvaloniaDCT.Services; // SqliteDatabase, DatabaseKeySalt, AppSecurityProfile
 using Microsoft.Data.Sqlite; // Direct opens that bypass SqliteDatabase
 
-namespace AvaloniaDCT.Tests; // Login, clipboard rows, PBKDF2 migration, and leftover preference rows
+namespace AvaloniaDCT.Tests; // Login, clipboard rows, leftover preference rows (no PBKDF2 rekey in local SqliteDatabase)
 
 public class SqliteDatabaseTests : IDisposable // Each fact gets a temp folder that Dispose deletes
 {
@@ -45,19 +45,19 @@ public class SqliteDatabaseTests : IDisposable // Each fact gets a temp folder t
         database.OverwriteTagItemValues(user.UserId, []); // Delete every clipboard row
         Assert.Empty(database.LoadTagItemValues(user.UserId)); // Table is empty for this user
 
-        Assert.False(File.Exists(DatabaseKeySalt.GetPath(path))); // Plaintext mode does not write a .kdf
+        Assert.False(File.Exists(DatabaseKeySalt.GetPath(path))); // Local plaintext mode does not write a .kdf
         using var plain = Open(path, password: null); // File opens with no SQLCipher password
         using var command = plain.CreateCommand(); // Count logins
         command.CommandText = "SELECT COUNT(*) FROM user"; // Seeded row is still there
         Assert.Equal(1, Convert.ToInt32(command.ExecuteScalar())); // knowlton
     } // end unencrypted crud
 
-    [Fact] // New hardened file: derived key, wrong password does not open it
+    [Fact] // New hardened file: typed password is the SQLCipher key; wrong password does not open it
     public void Hardened_database_keeps_rows_and_rejects_the_wrong_password()
     {
         var path = Path.Combine(_directory, "CBDB.db"); // New file
         var created = new SqliteDatabase(Profile(path, hardened: true)); // First login creates it
-        var user = created.TryLogin("ada", "s3cret"); // Create account
+        var user = created.TryLogin("ada", "s3cret"); // Create account; password is the file key
         Assert.NotNull(user); // File and user row exist
 
         created.OverwriteTagItemValues(user!.UserId, // One clipboard row
@@ -65,68 +65,55 @@ public class SqliteDatabaseTests : IDisposable // Each fact gets a temp folder t
             new TagItemValue { Tag = "Home", Item = "Alarm", Value = "2468", OwnerId = user.UserId } // Value to keep
         ]);
 
-        var salt = DatabaseKeySalt.TryRead(path); // Sidecar written at create
-        Assert.NotNull(salt); // .kdf exists
-        Assert.True(salt!.IsActive); // Create marks the key active immediately
-        Assert.Equal(SqlCipherKeyDeriver.DefaultIterations, salt.Iterations); // 600,000
+        Assert.False(File.Exists(DatabaseKeySalt.GetPath(path))); // Local SqliteDatabase does not write a .kdf sidecar
 
         var reopened = new SqliteDatabase(Profile(path, hardened: true)); // New instance, same file
-        var again = reopened.TryLogin("ada", "s3cret"); // Derive the key from the sidecar
+        var again = reopened.TryLogin("ada", "s3cret"); // Same typed password decrypts the file
         Assert.NotNull(again); // Same password opens it
         Assert.Equal("2468", Assert.Single(reopened.LoadTagItemValues(again!.UserId)).Value); // Row survived
 
         var denied = new SqliteDatabase(Profile(path, hardened: true)); // Third instance
-        Assert.Null(denied.TryLogin("ada", "wrong")); // Wrong password is not a migration
+        Assert.Null(denied.TryLogin("ada", "wrong")); // Wrong password is SQLITE_NOTADB
         Assert.Equal("2468", Assert.Single(reopened.LoadTagItemValues(again.UserId)).Value); // Failed login did not wipe rows
 
-        Assert.Throws<SqliteException>(() => // The login string is not the SQLCipher passphrase anymore
-        {
-            using var rawPassword = Open(path, "s3cret"); // Raw passphrase must fail
-        });
+        using var rawPassword = Open(path, "s3cret"); // Local file key is still the typed password
+        using var command = rawPassword.CreateCommand(); // Count clipboard rows
+        command.CommandText = "SELECT COUNT(*) FROM tagitemvaltable"; // The Alarm row
+        Assert.Equal(1, Convert.ToInt32(command.ExecuteScalar())); // Row is readable with the raw passphrase
     } // end hardened keeps rows
 
-    [Fact] // Old raw-password file is backed up, rekeyed, and still has its rows
-    public void Legacy_raw_password_database_migrates_and_keeps_rows()
+    [Fact] // Preferences Save/Load round-trip (File > Preferences, kept on this branch)
+    public void SavePreferences_then_LoadPreferences_returns_the_smtp_fields()
     {
-        var path = Path.Combine(_directory, "CBDB.db"); // Will be created as a legacy file
-        CreateLegacyDatabase(path, "ada", "s3cret", "Work", "Wifi", "hunter2"); // Passphrase is the password, no .kdf
+        var path = Path.Combine(_directory, "CBDB.db"); // Debug file
+        var database = new SqliteDatabase(Profile(path, hardened: false)); // No SQLCipher password
+        database.Initialize(); // Schema including preferences
+        var user = database.TryLogin("knowlton", "knowlton"); // Seeded account
+        Assert.NotNull(user); // Debug seed worked
 
-        var migrated = new SqliteDatabase(Profile(path, hardened: true)); // First hardened open migrates
-        var user = migrated.TryLogin("ada", "s3cret"); // Raw password opens, then rekey
-        Assert.NotNull(user); // Login succeeded
-        var row = Assert.Single(migrated.LoadTagItemValues(user!.UserId)); // One clipboard row
-        Assert.Equal("Work", row.Tag); // Tag kept
-        Assert.Equal("Wifi", row.Item); // Item kept
-        Assert.Equal("hunter2", row.Value); // Value kept
-
-        var salt = DatabaseKeySalt.TryRead(path); // Sidecar written by the migration
-        Assert.NotNull(salt); // .kdf exists
-        Assert.True(salt!.IsActive); // Rekey finished
-
-        var reopened = new SqliteDatabase(Profile(path, hardened: true)); // Second open uses the derived key
-        var again = reopened.TryLogin("ada", "s3cret"); // Same password
-        Assert.Equal("hunter2", Assert.Single(reopened.LoadTagItemValues(again!.UserId)).Value); // Still there
-
-        Assert.Null(new SqliteDatabase(Profile(path, hardened: true)).TryLogin("ada", "wrong")); // Wrong password does not open the new key
-
-        Assert.Throws<SqliteException>(() => // The live file no longer accepts the raw passphrase
+        database.SavePreferences(user!.UserId, new UserPreferences // SMTP fields the Preferences window saves
         {
-            using var oldKey = Open(path, "s3cret"); // Must fail
+            FromAddress = "ada@example.com", // SMTP From
+            Host = "smtp.example.com", // SMTP host
+            Port = "587", // SMTP port
+            UserName = "ada", // SMTP user
+            Password = "mail-secret" // SMTP password
         });
 
-        var backup = Directory.GetFiles(_directory, "*BEFORE_KDF_MIGRATION*.db").Single(); // Pre-rekey copy
-        using var legacyBackup = Open(backup, "s3cret"); // That copy still uses the raw passphrase
-        using var command = legacyBackup.CreateCommand(); // Read the clipboard value
-        command.CommandText = "SELECT thevalue FROM tagitemvaltable WHERE item = 'Wifi'"; // The row we inserted
-        Assert.Equal("hunter2", command.ExecuteScalar()); // Backup is a real recovery file
-    } // end legacy migrates
+        var loaded = database.LoadPreferences(user.UserId); // Preferences window load
+        Assert.Equal("ada@example.com", loaded.FromAddress); // From survived
+        Assert.Equal("smtp.example.com", loaded.Host); // Host survived
+        Assert.Equal("587", loaded.Port); // Port survived
+        Assert.Equal("ada", loaded.UserName); // User survived
+        Assert.Equal("mail-secret", loaded.Password); // Password survived
+    } // end save then load preferences
 
-    [Fact] // WinForms preference columns are not read by the UI, but migration must not drop them
-    public void Existing_preference_rows_survive_migration()
+    [Fact] // WinForms leftover preference columns survive Initialize (CREATE TABLE IF NOT EXISTS)
+    public void Existing_preference_rows_survive_initialize()
     {
-        var path = Path.Combine(_directory, "CBDB.db"); // Legacy file
-        CreateLegacyDatabase(path, "ada", "s3cret", "Work", "Wifi", "hunter2"); // User + one clipboard row
-        using (var connection = Open(path, "s3cret")) // Still the raw passphrase
+        var path = Path.Combine(_directory, "CBDB.db"); // Hardened file whose key is the login password
+        CreateHardenedDatabase(path, "ada", "s3cret", "Work", "Wifi", "hunter2"); // User + one clipboard row
+        using (var connection = Open(path, "s3cret")) // Typed password is the SQLCipher key
         {
             using var command = connection.CreateCommand(); // Add the old preferences table and one row
             command.CommandText =
@@ -145,21 +132,18 @@ public class SqliteDatabaseTests : IDisposable // Each fact gets a temp folder t
                 );
                 INSERT INTO preferences (UserID, FromAddress, Host, SourceIP)
                 VALUES (1, 'old@example.com', 'smtp.gmail.com', '192.168.1.2');
-                """; // Email and home-network values the Avalonia UI no longer edits
-            command.ExecuteNonQuery(); // Commit that row before migration
-        } // end using legacy connection
+                """; // Email and home-network values the Chat tab replaced for LAN
+            command.ExecuteNonQuery(); // Commit that row before Initialize
+        } // end using connection
 
-        var database = new SqliteDatabase(Profile(path, hardened: true)); // Migrate on login
-        var user = database.TryLogin("ada", "s3cret"); // Rekey
+        var database = new SqliteDatabase(Profile(path, hardened: true)); // Same file
+        var user = database.TryLogin("ada", "s3cret"); // Decrypt with the typed password
         Assert.NotNull(user); // Login worked
         database.Initialize(); // CREATE TABLE IF NOT EXISTS must not rebuild preferences
 
-        var salt = DatabaseKeySalt.TryRead(path); // New sidecar
-        Assert.NotNull(salt); // Migration wrote it
-        var key = SqlCipherKeyDeriver.DeriveKey("s3cret", salt!.Salt, salt.Iterations); // Same key the app cached
-        using var check = Open(path, SqlCipherKeyDeriver.ToSqlCipherPassword(key)); // Open with the raw key, not the passphrase
+        using var check = Open(path, "s3cret"); // Still the typed password
         using var read = check.CreateCommand(); // Read the leftover preference row
-        read.CommandText = "SELECT FromAddress, Host, SourceIP FROM preferences"; // Columns the UI no longer binds
+        read.CommandText = "SELECT FromAddress, Host, SourceIP FROM preferences"; // SMTP plus leftover LAN column
         using var reader = read.ExecuteReader(); // One row
         Assert.True(reader.Read()); // The row is still there
         Assert.Equal("old@example.com", reader.GetString(0)); // SMTP From survived
@@ -168,21 +152,21 @@ public class SqliteDatabaseTests : IDisposable // Each fact gets a temp folder t
         Assert.Equal("hunter2", database.LoadTagItemValues(user!.UserId).Single(row => row.Item == "Wifi").Value); // Clipboard row too
     } // end preference rows survive
 
-    [Fact] // A wrong password must not write a .kdf or a migration backup
-    public void Wrong_password_does_not_migrate_a_legacy_database()
+    [Fact] // A wrong password must not open the file or write a .kdf
+    public void Wrong_password_does_not_open_a_hardened_database()
     {
-        var path = Path.Combine(_directory, "CBDB.db"); // Legacy file
-        CreateLegacyDatabase(path, "ada", "s3cret", "Work", "Wifi", "hunter2"); // Passphrase s3cret
+        var path = Path.Combine(_directory, "CBDB.db"); // Hardened file
+        CreateHardenedDatabase(path, "ada", "s3cret", "Work", "Wifi", "hunter2"); // Passphrase s3cret
 
         Assert.Null(new SqliteDatabase(Profile(path, hardened: true)).TryLogin("ada", "nope")); // Not the passphrase
         Assert.False(File.Exists(DatabaseKeySalt.GetPath(path))); // No sidecar
-        Assert.Empty(Directory.GetFiles(_directory, "*BEFORE_KDF_MIGRATION*")); // No backup, because we never opened it
+        Assert.Empty(Directory.GetFiles(_directory, "*BEFORE_KDF_MIGRATION*")); // Local code does not migrate
 
-        using var stillLegacy = Open(path, "s3cret"); // Original passphrase still works
-        using var command = stillLegacy.CreateCommand(); // Read the value
+        using var stillOpen = Open(path, "s3cret"); // Original passphrase still works
+        using var command = stillOpen.CreateCommand(); // Read the value
         command.CommandText = "SELECT thevalue FROM tagitemvaltable WHERE item = 'Wifi'"; // The inserted row
         Assert.Equal("hunter2", command.ExecuteScalar()); // Untouched
-    } // end wrong password does not migrate
+    } // end wrong password does not open
 
     public void Dispose() // After each fact
     {
@@ -200,7 +184,7 @@ public class SqliteDatabaseTests : IDisposable // Each fact gets a temp folder t
         TitleMode = "TEST" // Window title is unused here
     };
 
-    private static void CreateLegacyDatabase( // SQLCipher file whose passphrase is the login password and that has no .kdf
+    private static void CreateHardenedDatabase( // SQLCipher file whose passphrase is the login password
         string path,
         string userName,
         string password,
@@ -208,7 +192,7 @@ public class SqliteDatabaseTests : IDisposable // Each fact gets a temp folder t
         string item,
         string value)
     {
-        using var connection = Open(path, password); // Create the file with the raw passphrase
+        using var connection = Open(path, password); // Create the file with the typed passphrase
         using var command = connection.CreateCommand(); // Schema plus one user and one clipboard row
         command.CommandText =
             """
@@ -233,19 +217,19 @@ public class SqliteDatabaseTests : IDisposable // Each fact gets a temp folder t
         command.Parameters.AddWithValue("$item", item); // Clipboard item
         command.Parameters.AddWithValue("$value", value); // Clipboard value
         command.ExecuteNonQuery(); // Write the fixture
-    } // end CreateLegacyDatabase
+    } // end CreateHardenedDatabase
 
     private static SqliteConnection Open(string path, string? password) // Direct SQLCipher/SQLite open for assertions
     {
         var builder = new SqliteConnectionStringBuilder // Not SqliteDatabase.OpenConnection
         {
             DataSource = path, // CBDB.db or a backup
-            Mode = SqliteOpenMode.ReadWriteCreate, // Create the legacy fixture
+            Mode = SqliteOpenMode.ReadWriteCreate, // Create the fixture
             Pooling = false // So Dispose can delete the file
         };
         if (!string.IsNullOrEmpty(password)) // Null password is the plaintext Debug file
         {
-            builder.Password = password; // Raw passphrase or x'…' key
+            builder.Password = password; // Typed passphrase
         } // end if password
 
         var connection = new SqliteConnection(builder.ConnectionString); // Closed until Open

@@ -8,16 +8,17 @@ SUMMARY
 ------------------------------------------------------------------------------
 
   Command:       dotnet test AvaloniaDCT.sln
-  When:          Friday, 27 Nov 2026, 12:27 PM (local)
+  When:          Friday, 27 Nov 2026, after merging origin/main into local
+                 main while keeping local Preferences and conflict files
   Configuration: Debug | Any CPU
   Host:          xUnit.net VSTest Adapter v3.1.4, .NET 10.0.12 (64-bit)
   Assembly:      AvaloniaDCT.Tests\bin\Debug\net10.0\AvaloniaDCT.Tests.dll
 
-  Total:         24
-  Passed:        24
+  Total:         23
+  Passed:        23
   Failed:        0
   Skipped:       0
-  Duration:      5.99 seconds (test run)
+  Duration:      3 seconds (test run)
   Build:         succeeded, 0 warnings, 0 errors
 
   Result:        ALL TESTS PASSED
@@ -27,8 +28,12 @@ WHAT WAS RUN
 ------------------------------------------------------------------------------
 
 These tests call app services (ClipboardStore, SqliteDatabase, SQLCipher
-key derivation, backups, LAN chat). They do not open Avalonia windows or
-click the UI.
+key derivation helpers, backups, LAN chat, Preferences load/save). They
+do not open Avalonia windows or click the UI.
+
+Local SqliteDatabase still uses the typed password as the SQLCipher key
+(no PBKDF2 rekey). Incoming tests that expected TryCreateCopy / .kdf
+migration were rewritten to match that local API.
 
 
 PASSED TESTS
@@ -55,28 +60,27 @@ ClipboardStoreTests  (main screen: tags / items / values in memory)
         Login-style Load wipes prior memory and keeps SQLite rows.
 
 
-SqliteDatabaseTests  (login, clipboard persist, encryption)
+SqliteDatabaseTests  (login, clipboard persist, encryption, Preferences)
 
-  PASS  Unencrypted_database_supports_login_and_tag_item_crud  (56 ms)
+  PASS  Unencrypted_database_supports_login_and_tag_item_crud
         Debug file: knowlton seed, wrong password rejected, overwrite
         replace-all, no .kdf sidecar, file opens without a SQLCipher key.
 
-  PASS  Hardened_database_keeps_rows_and_rejects_the_wrong_password  (849 ms)
+  PASS  Hardened_database_keeps_rows_and_rejects_the_wrong_password
         Create account, clipboard row survives reopen, wrong password
-        fails, login string is not the raw SQLCipher passphrase.
+        fails, typed password is still the SQLCipher key.
 
-  PASS  Legacy_raw_password_database_migrates_and_keeps_rows  (2 s)
-        Old file (password = key, no .kdf) migrates, rows kept, backup
-        still opens with the old passphrase, live file does not.
+  PASS  SavePreferences_then_LoadPreferences_returns_the_smtp_fields
+        File > Preferences SMTP DTO round-trips through SQLite.
 
-  PASS  Existing_preference_rows_survive_migration  (1 s)
-        Leftover SMTP/LAN preference columns are not dropped on rekey.
+  PASS  Existing_preference_rows_survive_initialize
+        Leftover SMTP/LAN preference columns are not dropped on Initialize.
 
-  PASS  Wrong_password_does_not_migrate_a_legacy_database  (1 s)
-        Bad password does not write .kdf or a migration backup.
+  PASS  Wrong_password_does_not_open_a_hardened_database
+        Bad password does not write .kdf or open the file.
 
 
-SqlCipherKeyDeriverTests  (PBKDF2 → SQLCipher raw key)
+SqlCipherKeyDeriverTests  (PBKDF2 helper; not yet wired into local SqliteDatabase)
 
   PASS  DeriveKey_is_deterministic_for_the_same_password_and_salt
         Same inputs → same 32-byte key.
@@ -84,15 +88,15 @@ SqlCipherKeyDeriverTests  (PBKDF2 → SQLCipher raw key)
   PASS  DeriveKey_changes_when_the_salt_changes
         Different salt → different key.
 
-  PASS  DeriveKey_matches_utf8_pbkdf2_and_uses_the_owasp_iteration_count  (110 ms)
+  PASS  DeriveKey_matches_utf8_pbkdf2_and_uses_the_owasp_iteration_count
         DefaultIterations is 600,000; string overload matches UTF-8
         Rfc2898DeriveBytes; x'HEX' form used as the SQLCipher password.
 
 
-DatabaseKeySaltTests  (CBDB.db.kdf sidecar)
+DatabaseKeySaltTests  (CBDB.db.kdf sidecar helper)
 
   PASS  TryRead_returns_null_when_the_sidecar_is_missing
-        No .kdf → legacy/Debug path.
+        No .kdf → local Debug / raw-password path.
 
   PASS  Write_then_TryRead_returns_the_same_record
         Salt, 600,000 iterations, and active flag round-trip.
@@ -106,22 +110,19 @@ DatabaseKeySaltTests  (CBDB.db.kdf sidecar)
 
 DatabaseBackupTests  (sidecar copies of CBDB.db)
 
-  PASS  TryCreateCopy_returns_false_when_the_database_is_missing
+  PASS  CreateCopy_does_nothing_when_the_database_is_missing
         First install does not throw.
 
-  PASS  TryCreateCopy_writes_a_named_copy_next_to_the_database
+  PASS  CreateCopy_writes_a_named_copy_next_to_the_database
         AUTO_BACKUP file contains the same bytes.
 
-  PASS  TryCreateCopy_copies_the_kdf_sidecar_when_asked
-        Ordinary backup also copies .kdf.
-
-  PASS  TryCreateCopy_can_skip_the_kdf_sidecar
-        BEFORE_KDF_MIGRATION copy has no .kdf (old passphrase still works).
+  PASS  CreateCopy_does_not_copy_a_kdf_sidecar
+        Local CreateCopy copies only CBDB.db.
 
 
 LanChatServiceTests  (Chat tab, no Window)
 
-  PASS  Host_and_client_exchange_group_messages  (24 ms)
+  PASS  Host_and_client_exchange_group_messages
         Tom hosts, Bob joins 127.0.0.1, each sees the other's line.
 
   PASS  StartHostAsync_requires_a_display_name
@@ -132,7 +133,7 @@ NOT COVERED BY THIS RUN
 ------------------------------------------------------------------------------
 
   Avalonia windows, buttons, and bindings (no UI test runner)
-  File > Preferences SMTP form
+  File > Preferences SMTP form clicks (service Load/Save is covered)
   Velopack installer
   LEGACY WinForms DCT
 

@@ -15,6 +15,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AvaloniaDCT.csproj" /> <!-- SqliteDatabase and SqlCipherKeyDeriver under test -->
+    <ProjectReference Include="..\AvaloniaDCT.csproj" /> <!-- App services under test (no Windows, no XAML) -->
   </ItemGroup>
 </Project>
